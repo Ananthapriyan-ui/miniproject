@@ -146,6 +146,7 @@ class ScanCreate(BaseModel):
     low_count: Optional[int] = 0
     risk_score: Optional[float] = 0.0
     duration: Optional[str] = "2m 15s"
+    scan_data: Optional[str] = None
 
     @field_validator("target")
     @classmethod
@@ -186,6 +187,7 @@ class ScanResponse(BaseModel):
     low_count: int
     risk_score: float
     duration: str
+    scan_data: Optional[str] = None
     created_at: datetime
 
     class Config:
@@ -229,6 +231,25 @@ class ActivityLogResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
+# ──────────────────────────────────────────────
+# Report Schema
+# ──────────────────────────────────────────────
+
+class ReportResponse(BaseModel):
+    id: int
+    report_ref: str
+    scan_ref: str
+    target: str
+    executive_summary: str
+    scan_type: str
+    duration: str
+    html_generated: bool
+    csv_generated: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
 
 # ──────────────────────────────────────────────
 # Security Analysis Schemas

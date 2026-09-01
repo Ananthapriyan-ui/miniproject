@@ -36,6 +36,7 @@ class Scan(Base):
     low_count = Column(Integer, default=0, nullable=False)
     risk_score = Column(Float, default=0.0, nullable=False)
     duration = Column(String(30), default="2m 15s")
+    scan_data = Column(Text, nullable=True)  # Store JSON of full analysis results
     created_at = Column(DateTime, default=datetime.datetime.now(datetime.timezone.utc), index=True)
 
     vulnerabilities = relationship(
@@ -91,5 +92,8 @@ class Report(Base):
     scan_ref = Column(String(50), ForeignKey("scans.scan_ref", ondelete="CASCADE"), nullable=False)
     target = Column(String(500), nullable=False)
     executive_summary = Column(Text, nullable=False)
-    pdf_url = Column(String(500), nullable=True)
+    scan_type = Column(String(100), default="Cloud Misconfig")
+    duration = Column(String(30), default="2m 15s")
+    html_generated = Column(Boolean, default=False)
+    csv_generated = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.datetime.now(datetime.timezone.utc))

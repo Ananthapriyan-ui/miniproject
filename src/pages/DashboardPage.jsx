@@ -140,11 +140,12 @@ export const DashboardPage = () => {
 
   if (loading) return <PageSkeleton />;
 
-  const recentReports = [
-    { id: 'SCAN-2026-9810', target: 'prod-k8s-api-gateway',      date: '2026-07-27', risk: '9.8' },
-    { id: 'SCAN-2026-9788', target: 'finance-db-primary',        date: '2026-07-26', risk: '7.4' },
-    { id: 'SCAN-2026-9650', target: 'analytics-s3-public',       date: '2026-07-25', risk: '9.1' },
-  ];
+  const recentReports = recentScans.slice(0, 5).map(scan => ({
+    id: scan.scan_ref,
+    target: scan.target,
+    date: scan.created_at ? scan.created_at.substring(0, 10) : '',
+    risk: scan.risk_score
+  }));
 
   return (
     <div className="space-y-6">

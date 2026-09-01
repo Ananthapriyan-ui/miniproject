@@ -56,139 +56,42 @@ export const ReportPage = () => {
   }, [id]);
 
   const reportMeta = {
-    scanId: id || 'SCAN-2026-9810',
-    target: reportData?.target || 'api.production.cloudvuln.io',
-    cloudProvider: reportData?.cloud_provider || 'AWS US-East-1 (Account: 9482-1049-2041)',
-    executedAt: reportData?.executed_at || '2026-07-27 18:20 UTC',
-    duration: '4m 12s',
-    totalIssues: 5,
-    criticalCount: reportData?.critical_count || 1,
-    highCount: reportData?.high_count || 2,
-    mediumCount: reportData?.medium_count || 2,
-    overallScore: reportData?.risk_score || 9.8,
-    securityScore: 50,
-    riskLevel: reportData?.status?.toUpperCase() || 'CRITICAL'
+    scanId: reportData?.scan_ref || id || 'Unknown',
+    target: reportData?.target || 'Unknown',
+    cloudProvider: reportData?.cloud_provider || 'Unknown',
+    executedAt: reportData?.executed_at || 'Unknown',
+    duration: reportData?.duration || 'Unknown',
+    totalIssues: (reportData?.critical_count || 0) + (reportData?.high_count || 0) + (reportData?.medium_count || 0) + (reportData?.low_count || 0),
+    criticalCount: reportData?.critical_count || 0,
+    highCount: reportData?.high_count || 0,
+    mediumCount: reportData?.medium_count || 0,
+    overallScore: reportData?.risk_score || 0,
+    securityScore: reportData?.scan_data?.security_score || 100,
+    riskLevel: reportData?.status?.toUpperCase() || 'UNKNOWN'
   };
 
-  const executiveSummary = `Automated security posture analysis completed for ${reportMeta.target}. The assessment evaluated SSL/TLS configurations, HTTP security header directives, public CVE mappings from NVD API, OWASP Top 10 categories, and domain WHOIS parameters. High and Critical severity findings require immediate remediation.`;
+  const executiveSummary = reportData?.scan_data?.executive_summary || `Automated security posture analysis completed for ${reportMeta.target}.`;
 
-  const whoisSummary = {
-    registrar: 'MarkMonitor Inc. (IANA ID 292)',
-    creationDate: '2021-04-15',
-    expiryDate: '2028-04-15',
-    nameServers: ['ns1.markmonitor.com', 'ns2.markmonitor.com'],
-    domainStatus: ['clientTransferProhibited', 'active']
+  const whoisSummary = reportData?.scan_data?.whois_summary || {
+    registrar: 'N/A',
+    creationDate: 'N/A',
+    expiryDate: 'N/A',
+    nameServers: [],
+    domainStatus: []
   };
 
-  const owaspFindings = [
-    {
-      id: 'A01:2021',
-      category: 'Broken Access Control',
-      status: 'Passed',
-      severity: 'Passed',
-      title: 'Transport Layer Enforces Encrypted Endpoint Boundary',
-      recommendation: 'Enforce RBAC controls on internal server routes.'
-    },
-    {
-      id: 'A02:2021',
-      category: 'Cryptographic Failures',
-      status: 'Failed',
-      severity: 'Medium',
-      title: 'Missing Strict-Transport-Security (HSTS) Header',
-      recommendation: 'Configure HSTS max-age=31536000 directive.'
-    },
-    {
-      id: 'A03:2021',
-      category: 'Injection',
-      status: 'Warning',
-      severity: 'High',
-      title: 'Content Security Policy (CSP) Unconfigured',
-      recommendation: 'Deploy script-src CSP rules.'
-    },
-    {
-      id: 'A04:2021',
-      category: 'Insecure Design',
-      status: 'Unable to Verify',
-      severity: 'Unable to Verify',
-      title: 'Business Logic Design Verification',
-      recommendation: 'Perform formal threat modeling review.'
-    },
-    {
-      id: 'A05:2021',
-      category: 'Security Misconfiguration',
-      status: 'Failed',
-      severity: 'Medium',
-      title: 'Server Banner Information Disclosure',
-      recommendation: 'Suppress Server & X-Powered-By HTTP headers.'
-    },
-    {
-      id: 'A06:2021',
-      category: 'Vulnerable & Outdated Components',
-      status: 'Failed',
-      severity: 'High',
-      title: 'Public CVE Matches Discovered in Component Stack',
-      recommendation: 'Upgrade software stack to latest release.'
-    }
-  ];
+  const owaspFindings = reportData?.scan_data?.owasp_summary?.findings || [];
 
-  const sslSummary = {
-    cert_status: 'Valid',
-    issuer: 'DigiCert Global TLS RSA SHA256 CA',
-    expiry_date: '2026-11-28',
-    tls_version: 'TLSv1.3',
-    days_left: 124,
-    recommendations: [
-      'TLS 1.3 Cipher Suite verified (ECDHE-RSA-AES128-GCM-SHA256).',
-      'Ensure HTTP Strict Transport Security (HSTS) preload header is attached.'
-    ]
+  const sslSummary = reportData?.scan_data?.ssl_summary || {
+    cert_status: 'N/A',
+    issuer: 'N/A',
+    expiry_date: 'N/A',
+    tls_version: 'N/A',
+    days_left: 0,
+    recommendations: []
   };
 
-  const vulnerabilities = [
-    {
-      id: 'CVE-2026-1184',
-      title: 'Remote Code Execution in Apache Tomcat Servlet Container',
-      severity: 'critical',
-      cvss: 9.8,
-      vector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H',
-      component: 'prod-k8s-api-gateway (Port 8080)',
-      description: 'An unauthenticated remote attacker can inject arbitrary bytecode via crafted HTTP header payloads due to improper input sanitization in Tomcat 9.0.41.',
-      remediation: 'Upgrade Apache Tomcat package to version >= 9.0.85 or update base container image in Dockerfile.',
-      remediationCmd: 'kubectl set image deployment/api-gateway api-gateway=tomcat:9.0.85-jdk17-corretto --namespace=production'
-    },
-    {
-      id: 'MISCONFIG-AWS-S3-04',
-      title: 'S3 Storage Bucket Configured with Public Read ACL',
-      severity: 'high',
-      cvss: 8.2,
-      vector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N',
-      component: 'arn:aws:s3:::analytics-storage-bucket-public',
-      description: 'The S3 bucket contains customer telemetry logs but allows anonymous HTTP GET requests without authentication token verification.',
-      remediation: 'Enable S3 Block Public Access setting and restrict access using IAM bucket policies.',
-      remediationCmd: 'aws s3api put-public-access-block --bucket analytics-storage-bucket-public --public-access-block-configuration "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"'
-    },
-    {
-      id: 'CVE-2025-9831',
-      title: 'OpenSSL Out-of-Bounds Memory Buffer Leak',
-      severity: 'high',
-      cvss: 7.5,
-      vector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N',
-      component: 'auth-service (OpenSSL 1.1.1t)',
-      description: 'Buffer over-read flaw in TLS extension parser allows remote attackers to obtain sensitive memory contents.',
-      remediation: 'Patch OpenSSL package to version 1.1.1w or OpenSSL 3.0.x series.',
-      remediationCmd: 'apt-get update && apt-get install --only-upgrade libssl-dev'
-    },
-    {
-      id: 'WARN-TLS-1.0',
-      title: 'Deprecated TLS 1.0 & TLS 1.1 Protocol Enabled',
-      severity: 'medium',
-      cvss: 5.3,
-      vector: 'CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:P/I:N/A:N',
-      component: 'ingress-loadbalancer (ALB)',
-      description: 'Legacy TLS versions vulnerable to POODLE and BEAST protocol downgrade attacks are currently enabled on port 443 listener.',
-      remediation: 'Enforce minimum TLS 1.2 in ALB Security Policy (ELBSecurityPolicy-TLS13-1-2-2021-06).',
-      remediationCmd: 'aws elbv2 modify-listener --listener-arn <LISTENER_ARN> --ssl-policy ELBSecurityPolicy-TLS13-1-2-2021-06'
-    }
-  ];
+  const vulnerabilities = reportData?.scan_data?.cve_findings || [];
 
   const handleCopy = (text, itemKey) => {
     navigator.clipboard.writeText(text);
@@ -249,7 +152,7 @@ export const ReportPage = () => {
             icon={Download}
             onClick={() => setIsExportModalOpen(true)}
           >
-            Export Report (PDF / HTML)
+            Export Report
           </Button>
         </div>
       </div>
@@ -475,8 +378,8 @@ export const ReportPage = () => {
             <Button variant="secondary" onClick={() => setIsExportModalOpen(false)}>
               Cancel
             </Button>
-            <Button variant="primary" icon={Download} onClick={() => handleDownload('pdf')}>
-              Download PDF Report
+            <Button variant="primary" icon={Download} onClick={() => handleDownload('html')}>
+              Download HTML Report
             </Button>
           </>
         }
@@ -488,19 +391,19 @@ export const ReportPage = () => {
 
           <div className="grid grid-cols-2 gap-3">
             <button
-              onClick={() => handleDownload('pdf')}
+              onClick={() => handleDownload('html')}
               className="p-4 rounded-xl border border-cyan-500/40 bg-cyan-500/10 text-cyan-300 font-semibold cursor-pointer flex items-center gap-2 hover:border-cyan-400 transition-colors text-xs text-left"
             >
               <FileText className="w-5 h-5 text-cyan-400 shrink-0" />
-              <span>📄 Executive PDF Report</span>
+              <span>🌐 Standalone HTML Report</span>
             </button>
 
             <button
-              onClick={() => handleDownload('html')}
+              onClick={() => handleDownload('csv')}
               className="p-4 rounded-xl border border-slate-800 bg-slate-900 text-slate-300 hover:border-cyan-500/40 cursor-pointer flex items-center gap-2 transition-colors text-xs text-left"
             >
               <FileText className="w-5 h-5 text-amber-400 shrink-0" />
-              <span>🌐 Standalone HTML Report</span>
+              <span>📊 Download CSV Data</span>
             </button>
           </div>
         </div>

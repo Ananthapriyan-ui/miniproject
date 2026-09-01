@@ -5342,3 +5342,72 @@ sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) UNIQUE constraint failed
 2026-08-18T09:32:09 | INFO     | CloudVulnEngine | [1d74dfa4] POST /api/analysis/target | status=200 | ip=127.0.0.1 | 5219.31ms
 2026-08-18T09:32:09 | INFO     | CloudVulnEngine | Scan created: SCAN-2026-9848 | target=api.production.cloudvuln.io
 2026-08-18T09:32:09 | INFO     | CloudVulnEngine | [9d2a0e19] POST /api/scans | status=201 | ip=127.0.0.1 | 16.29ms
+2026-09-01T08:59:38 | INFO     | CloudVulnEngine | [aaa03666] GET / | status=200 | ip=127.0.0.1 | 65.9ms
+2026-09-01T08:59:39 | WARNING  | CloudVulnEngine | [b78ac187] GET /favicon.ico | status=404 | ip=127.0.0.1 | 0.51ms
+2026-09-01T08:59:42 | INFO     | CloudVulnEngine | [d5622929] GET /api/dashboard/summary | status=200 | ip=127.0.0.1 | 330.98ms
+2026-09-01T08:59:42 | INFO     | CloudVulnEngine | [8ceeb8af] GET /api/dashboard/risk-statistics | status=200 | ip=127.0.0.1 | 565.28ms
+2026-09-01T08:59:43 | INFO     | CloudVulnEngine | [00a9125c] GET /api/dashboard/recent-scans | status=200 | ip=127.0.0.1 | 883.01ms
+2026-09-01T08:59:43 | INFO     | CloudVulnEngine | [df4167fc] GET /api/dashboard/activity | status=200 | ip=127.0.0.1 | 786.72ms
+2026-09-01T08:59:43 | INFO     | CloudVulnEngine | [f892730b] GET /api/dashboard/summary | status=200 | ip=127.0.0.1 | 468.16ms
+2026-09-01T08:59:43 | INFO     | CloudVulnEngine | [291b0eb0] GET /api/dashboard/risk-statistics | status=200 | ip=127.0.0.1 | 341.89ms
+2026-09-01T08:59:43 | INFO     | CloudVulnEngine | [5f1cd7d5] GET /api/dashboard/recent-scans | status=200 | ip=127.0.0.1 | 309.9ms
+2026-09-01T08:59:43 | INFO     | CloudVulnEngine | [22912eff] GET /api/dashboard/activity | status=200 | ip=127.0.0.1 | 320.4ms
+2026-09-01T08:59:44 | INFO     | CloudVulnEngine | [a16fde78] GET /api/dashboard/summary | status=200 | ip=127.0.0.1 | 138.45ms
+2026-09-01T08:59:44 | INFO     | CloudVulnEngine | [61a51a42] GET /api/dashboard/recent-scans | status=200 | ip=127.0.0.1 | 42.29ms
+2026-09-01T08:59:44 | INFO     | CloudVulnEngine | [a8329e82] GET /api/dashboard/activity | status=200 | ip=127.0.0.1 | 169.45ms
+2026-09-01T08:59:44 | INFO     | CloudVulnEngine | [abd57e4b] GET /api/dashboard/risk-statistics | status=200 | ip=127.0.0.1 | 435.35ms
+2026-09-01T08:59:45 | INFO     | CloudVulnEngine | [5d574630] GET /api/dashboard/summary | status=200 | ip=127.0.0.1 | 309.03ms
+2026-09-01T08:59:45 | INFO     | CloudVulnEngine | [55b976f6] GET /api/dashboard/recent-scans | status=200 | ip=127.0.0.1 | 168.74ms
+2026-09-01T08:59:45 | INFO     | CloudVulnEngine | [a30d96f9] GET /api/dashboard/risk-statistics | status=200 | ip=127.0.0.1 | 253.55ms
+2026-09-01T08:59:45 | INFO     | CloudVulnEngine | [d20476a3] GET /api/dashboard/activity | status=200 | ip=127.0.0.1 | 317.7ms
+2026-09-01T08:59:47 | INFO     | CloudVulnEngine | [bb653172] GET /api/cve/search | status=200 | ip=127.0.0.1 | 4937.69ms
+2026-09-01T08:59:48 | INFO     | CloudVulnEngine | [03ab3029] GET /api/cve/search | status=200 | ip=127.0.0.1 | 4008.76ms
+2026-09-01T08:59:52 | INFO     | CloudVulnEngine | [555fef14] GET /api/cve/search | status=200 | ip=127.0.0.1 | 4101.02ms
+2026-09-01T08:59:57 | INFO     | CloudVulnEngine | [ef7c204a] GET /api/dashboard/summary | status=200 | ip=127.0.0.1 | 116.25ms
+2026-09-01T08:59:58 | INFO     | CloudVulnEngine | [bf6250dc] GET /api/dashboard/risk-statistics | status=200 | ip=127.0.0.1 | 1333.63ms
+2026-09-01T08:59:58 | INFO     | CloudVulnEngine | [240654f6] GET /api/dashboard/recent-scans | status=200 | ip=127.0.0.1 | 1462.59ms
+2026-09-01T08:59:59 | INFO     | CloudVulnEngine | [9f3116bf] GET /api/dashboard/activity | status=200 | ip=127.0.0.1 | 1998.9ms
+2026-09-01T09:00:02 | INFO     | CloudVulnEngine | [5c1f6ead] GET /api/dashboard/summary | status=200 | ip=127.0.0.1 | 3791.7ms
+2026-09-01T09:00:04 | INFO     | CloudVulnEngine | [be20476f] GET /api/cve/search | status=200 | ip=127.0.0.1 | 7479.52ms
+2026-09-01T09:00:04 | INFO     | CloudVulnEngine | [a99f226c] GET /api/dashboard/risk-statistics | status=200 | ip=127.0.0.1 | 5744.14ms
+2026-09-01T09:00:04 | INFO     | CloudVulnEngine | [870eb5d1] GET /api/dashboard/recent-scans | status=200 | ip=127.0.0.1 | 5208.44ms
+2026-09-01T09:00:05 | INFO     | CloudVulnEngine | [4194281f] GET /api/dashboard/activity | status=200 | ip=127.0.0.1 | 4952.67ms
+2026-09-01T09:00:08 | INFO     | CloudVulnEngine | [84440d91] GET /api/cve/search | status=200 | ip=127.0.0.1 | 3774.8ms
+2026-09-01T09:00:32 | INFO     | CloudVulnEngine | [6f135ffa] POST /api/analysis/target | status=200 | ip=127.0.0.1 | 3927.73ms
+2026-09-01T09:00:32 | INFO     | CloudVulnEngine | [817c7ef4] POST /api/analysis/target | status=200 | ip=127.0.0.1 | 3970.18ms
+2026-09-01T09:00:33 | INFO     | CloudVulnEngine | Scan created: SCAN-2026-6134 | target=api.production.cloudvuln.io
+2026-09-01T09:00:33 | INFO     | CloudVulnEngine | Scan created: SCAN-2026-5012 | target=api.production.cloudvuln.io
+2026-09-01T09:00:33 | INFO     | CloudVulnEngine | [ce498810] POST /api/scans | status=201 | ip=127.0.0.1 | 140.77ms
+2026-09-01T09:00:33 | INFO     | CloudVulnEngine | [48d2cb12] POST /api/scans | status=201 | ip=127.0.0.1 | 203.98ms
+2026-09-01T09:00:47 | INFO     | CloudVulnEngine | [3f966b0a] POST /api/analysis/target | status=200 | ip=127.0.0.1 | 12017.32ms
+2026-09-01T09:00:48 | INFO     | CloudVulnEngine | [9b128886] POST /api/analysis/target | status=200 | ip=127.0.0.1 | 12512.37ms
+2026-09-01T09:00:48 | INFO     | CloudVulnEngine | Scan created: SCAN-2026-1950 | target=api.production.cloudvuln.io
+2026-09-01T09:00:48 | INFO     | CloudVulnEngine | Scan created: SCAN-2026-7670 | target=api.production.cloudvuln.io
+2026-09-01T09:00:48 | INFO     | CloudVulnEngine | [aa851181] POST /api/scans | status=201 | ip=127.0.0.1 | 335.37ms
+2026-09-01T09:00:48 | INFO     | CloudVulnEngine | [d53978d3] POST /api/scans | status=201 | ip=127.0.0.1 | 202.63ms
+2026-09-01T09:01:51 | INFO     | CloudVulnEngine | [0f6139de] POST /api/analysis/target | status=200 | ip=127.0.0.1 | 4861.17ms
+2026-09-01T09:01:51 | INFO     | CloudVulnEngine | Scan created: SCAN-2026-8272 | target=api.production.cloudvuln.io
+2026-09-01T09:01:51 | INFO     | CloudVulnEngine | [2615f94d] POST /api/scans | status=201 | ip=127.0.0.1 | 43.5ms
+2026-09-01T09:01:52 | INFO     | CloudVulnEngine | [a115e3a9] POST /api/analysis/target | status=200 | ip=127.0.0.1 | 6044.65ms
+2026-09-01T09:01:52 | INFO     | CloudVulnEngine | Scan created: SCAN-2026-5605 | target=api.production.cloudvuln.io
+2026-09-01T09:01:52 | INFO     | CloudVulnEngine | [7e89de8b] POST /api/scans | status=201 | ip=127.0.0.1 | 70.6ms
+2026-09-01T09:02:09 | INFO     | CloudVulnEngine | [2a2debd1] GET /api/dashboard/activity | status=200 | ip=127.0.0.1 | 67.12ms
+2026-09-01T09:02:09 | INFO     | CloudVulnEngine | [e6cc03d6] GET /api/dashboard/risk-statistics | status=200 | ip=127.0.0.1 | 127.02ms
+2026-09-01T09:02:09 | INFO     | CloudVulnEngine | [f4fa0933] GET /api/dashboard/summary | status=200 | ip=127.0.0.1 | 159.56ms
+2026-09-01T09:02:09 | INFO     | CloudVulnEngine | [1ad5778a] GET /api/dashboard/recent-scans | status=200 | ip=127.0.0.1 | 250.85ms
+2026-09-01T09:02:09 | INFO     | CloudVulnEngine | [a419483d] GET /api/dashboard/activity | status=200 | ip=127.0.0.1 | 143.54ms
+2026-09-01T09:02:09 | INFO     | CloudVulnEngine | [1a767a38] GET /api/dashboard/summary | status=200 | ip=127.0.0.1 | 82.6ms
+2026-09-01T09:02:09 | INFO     | CloudVulnEngine | [1a5ea1f3] GET /api/dashboard/risk-statistics | status=200 | ip=127.0.0.1 | 113.09ms
+2026-09-01T09:02:09 | INFO     | CloudVulnEngine | [1ca9f665] GET /api/dashboard/recent-scans | status=200 | ip=127.0.0.1 | 120.76ms
+2026-09-01T09:02:10 | INFO     | CloudVulnEngine | [7c40a021] GET /api/cve/search | status=200 | ip=127.0.0.1 | 1405.98ms
+2026-09-01T09:02:12 | INFO     | CloudVulnEngine | [8789e1c1] GET /api/cve/search | status=200 | ip=127.0.0.1 | 1558.1ms
+2026-09-01T09:03:54 | INFO     | CloudVulnEngine | [8da1ef50] GET /api/dashboard/summary | status=200 | ip=127.0.0.1 | 3.19ms
+2026-09-01T09:03:54 | INFO     | CloudVulnEngine | [2f33d139] GET /api/dashboard/risk-statistics | status=200 | ip=127.0.0.1 | 2.1ms
+2026-09-01T09:03:54 | INFO     | CloudVulnEngine | [a52f44bc] GET /api/dashboard/activity | status=200 | ip=127.0.0.1 | 70.83ms
+2026-09-01T09:03:54 | INFO     | CloudVulnEngine | [00bc40e4] GET /api/dashboard/summary | status=200 | ip=127.0.0.1 | 75.42ms
+2026-09-01T09:03:54 | INFO     | CloudVulnEngine | [32d490d3] GET /api/dashboard/risk-statistics | status=200 | ip=127.0.0.1 | 84.02ms
+2026-09-01T09:03:54 | INFO     | CloudVulnEngine | [1ea7c7c3] GET /api/dashboard/recent-scans | status=200 | ip=127.0.0.1 | 90.08ms
+2026-09-01T09:03:54 | INFO     | CloudVulnEngine | [dd4745bf] GET /api/dashboard/activity | status=200 | ip=127.0.0.1 | 1.76ms
+2026-09-01T09:03:54 | INFO     | CloudVulnEngine | [79842ab7] GET /api/dashboard/recent-scans | status=200 | ip=127.0.0.1 | 3.58ms
+2026-09-01T09:03:55 | INFO     | CloudVulnEngine | [5e1154a6] GET /api/cve/search | status=200 | ip=127.0.0.1 | 1174.53ms
+2026-09-01T09:03:56 | INFO     | CloudVulnEngine | [3bf3c4c9] GET /api/cve/search | status=200 | ip=127.0.0.1 | 1121.8ms

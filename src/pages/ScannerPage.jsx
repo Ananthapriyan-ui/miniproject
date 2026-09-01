@@ -99,7 +99,8 @@ export const ScannerPage = () => {
               medium_count: 2,
               low_count: 3,
               risk_score: (100 - data.security_score) / 10,
-              duration: '1m 20s'
+              duration: '1m 20s',
+              scan_data: JSON.stringify(data)
             })
           });
         } catch (e) {

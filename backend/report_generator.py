@@ -15,9 +15,11 @@ def generate_html_report(scan_data: Dict[str, Any]) -> str:
     medium_count = scan_data.get("medium_count", 2)
     low_count = scan_data.get("low_count", 0)
     created_at = scan_data.get("created_at", "2026-07-27 18:20 UTC")
-    exec_summary = scan_data.get("executive_summary") or f"Automated Security Posture Analysis for target {target}. Calculated Security Score: {security_score}/100. Critical audit findings identified."
+    parsed = scan_data.get("scan_data") or {}
 
-    whois = scan_data.get("whois_summary") or {
+    exec_summary = scan_data.get("executive_summary") or f"Automated Security Posture Analysis for target {target}. Calculated Risk Score: {risk_score}/10. Critical audit findings identified."
+
+    whois = parsed.get("whois_summary") or {
         "registrar": "MarkMonitor Inc. (IANA ID 292)",
         "creation_date": "2021-04-15",
         "expiry_date": "2028-04-15",
@@ -25,7 +27,7 @@ def generate_html_report(scan_data: Dict[str, Any]) -> str:
         "domain_status": ["clientTransferProhibited", "active"]
     }
 
-    owasp = scan_data.get("owasp_summary") or {
+    owasp = parsed.get("owasp_summary") or {
         "total_checks": 10,
         "passed_checks": 4,
         "failed_checks": 3,
@@ -228,8 +230,8 @@ def generate_html_report(scan_data: Dict[str, Any]) -> str:
 
         <div class="metrics-grid">
             <div class="metric-card">
-                <div style="font-size: 11px; color: #94a3b8; text-transform: uppercase;">Security Score</div>
-                <div class="metric-val text-emerald">{security_score}/100</div>
+                <div style="font-size: 11px; color: #94a3b8; text-transform: uppercase;">Risk Score</div>
+                <div class="metric-val text-emerald">{risk_score}/10</div>
             </div>
             <div class="metric-card">
                 <div style="font-size: 11px; color: #94a3b8; text-transform: uppercase;">Critical Vulns</div>
@@ -304,107 +306,36 @@ def generate_html_report(scan_data: Dict[str, Any]) -> str:
 </html>"""
     return html
 
-def generate_pdf_report(scan_data: Dict[str, Any]) -> bytes:
-    """Generate a downloadable binary PDF report using ReportLab or fallback formatted PDF stream."""
-    try:
-        import importlib
-        rl_pagesizes = importlib.import_module("reportlab.lib.pagesizes")
-        rl_platypus = importlib.import_module("reportlab.platypus")
-        rl_styles = importlib.import_module("reportlab.lib.styles")
-        rl_colors = importlib.import_module("reportlab.lib.colors")
-
-        letter = rl_pagesizes.letter
-        SimpleDocTemplate = rl_platypus.SimpleDocTemplate
-        Paragraph = rl_platypus.Paragraph
-        Spacer = rl_platypus.Spacer
-        Table = rl_platypus.Table
-        TableStyle = rl_platypus.TableStyle
-        getSampleStyleSheet = rl_styles.getSampleStyleSheet
-        ParagraphStyle = rl_styles.ParagraphStyle
-        colors = rl_colors
-
-        buffer = io.BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
-        story = []
-
-        styles = getSampleStyleSheet()
-        title_style = ParagraphStyle('TitleStyle', parent=styles['Heading1'], fontSize=20, textColor=colors.HexColor('#00f3ff'))
-        subtitle_style = ParagraphStyle('SubTitleStyle', parent=styles['Normal'], fontSize=11, textColor=colors.HexColor('#64748b'))
-        h2_style = ParagraphStyle('H2Style', parent=styles['Heading2'], fontSize=13, textColor=colors.HexColor('#0f172a'))
-        body_style = ParagraphStyle('BodyStyle', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#334155'))
-
-        target = scan_data.get("target", "api.production.cloudvuln.io")
-        scan_ref = scan_data.get("scan_ref", "SCAN-2026-9810")
-        risk_score = str(scan_data.get("risk_score", 9.8))
-        security_score = str(scan_data.get("security_score", 50))
-        exec_summary = scan_data.get("executive_summary") or f"Security audit completed for target resource {target}."
-
-        whois = scan_data.get("whois_summary") or {}
-        owasp = scan_data.get("owasp_summary") or {}
-
-        story.append(Paragraph("CloudVuln Executive Security Audit Report", title_style))
-        story.append(Paragraph(f"Scan Ref: {scan_ref} | Target: {target} | Security Score: {security_score}/100", subtitle_style))
-        story.append(Spacer(1, 14))
-
-        story.append(Paragraph("Executive Summary & Risk Assessment", h2_style))
-        story.append(Paragraph(exec_summary, body_style))
-        story.append(Spacer(1, 12))
-
-        # Summary Table
-        table_data = [
-            ["Audit Metric", "Assessment Output"],
-            ["Target Domain", target],
-            ["Cloud Provider", scan_data.get("provider", "AWS US-East-1")],
-            ["Overall Security Score", f"{security_score} / 100"],
-            ["OWASP Score", f"{owasp.get('overall_score', 75)} / 100 ({owasp.get('risk_level', 'Medium')} Risk)"],
-            ["WHOIS Registrar", whois.get("registrar", "MarkMonitor Inc.")],
-            ["Domain Expiry", whois.get("expiry_date", "2028-04-15")],
-            ["OWASP Checks Passed", f"{owasp.get('passed_checks', 4)} of {owasp.get('total_checks', 10)}"],
-            ["OWASP Unable to Verify", str(owasp.get("unable_to_verify_count", 2))],
-            ["Critical Findings", str(scan_data.get("critical_count", 1))],
-            ["High Findings", str(scan_data.get("high_count", 2))]
-        ]
-        t = Table(table_data, colWidths=[180, 320])
-        t.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (1,0), colors.HexColor('#0d1424')),
-            ('TEXTCOLOR', (0,0), (1,0), colors.HexColor('#00f3ff')),
-            ('FONTNAME', (0,0), (-1,-1), 'Helvetica-Bold'),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 6),
-            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#cbd5e1'))
-        ]))
-        story.append(t)
-        story.append(Spacer(1, 16))
-
-        story.append(Paragraph("OWASP Top 10 Assessment Findings", h2_style))
-        owasp_table_data = [["OWASP ID", "Category", "Status", "Severity", "Finding Title"]]
-        for f in owasp.get("findings", [])[:8]:
-            owasp_table_data.append([
-                f.get("owasp_id", "A01"),
-                f.get("category", "Security Check"),
-                f.get("status", "Passed"),
-                f.get("severity", "Passed"),
-                f.get("title", "Check Details")[:45]
-            ])
-        if len(owasp_table_data) > 1:
-            owasp_table = Table(owasp_table_data, colWidths=[65, 125, 75, 75, 160])
-            owasp_table.setStyle(TableStyle([
-                ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1e293b')),
-                ('TEXTCOLOR', (0,0), (-1,0), colors.HexColor('#00f3ff')),
-                ('FONTSIZE', (0,0), (-1,-1), 8),
-                ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#cbd5e1'))
-            ]))
-            story.append(owasp_table)
-            story.append(Spacer(1, 14))
-
-        story.append(Paragraph("Priority Vulnerability Remediation Guidelines", h2_style))
-        story.append(Paragraph("1. Upgrade Apache Tomcat package to version >= 9.0.85 (Fixes CVE-2026-1184).", body_style))
-        story.append(Paragraph("2. Deploy Strict Content-Security-Policy and HSTS security headers.", body_style))
-        story.append(Paragraph("3. Restrict CORS access control policies to authorized origin domains.", body_style))
-
-        doc.build(story)
-        pdf_bytes = buffer.getvalue()
-        buffer.close()
-        return pdf_bytes
-    except Exception as e:
-        html_str = generate_html_report(scan_data)
-        return html_str.encode('utf-8')
+def generate_csv_report(scan_data: Dict[str, Any]) -> str:
+    """Generate a CSV report containing the OWASP findings and risk summary."""
+    import csv
+    import io
+    
+    parsed = scan_data.get("scan_data") or {}
+    owasp = parsed.get("owasp_summary") or {}
+    findings = owasp.get("findings", [])
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Write summary
+    writer.writerow(["Scan Reference", scan_data.get("scan_ref")])
+    writer.writerow(["Target", scan_data.get("target")])
+    writer.writerow(["Risk Score", scan_data.get("risk_score")])
+    writer.writerow(["Status", scan_data.get("status")])
+    writer.writerow(["Created At", scan_data.get("created_at")])
+    writer.writerow([])
+    
+    # Write findings
+    writer.writerow(["OWASP ID", "Category", "Status", "Severity", "Finding Title", "Recommendation"])
+    for f in findings:
+        writer.writerow([
+            f.get("owasp_id", ""),
+            f.get("category", ""),
+            f.get("status", ""),
+            f.get("severity", ""),
+            f.get("title", ""),
+            f.get("recommendation", "")
+        ])
+        
+    return output.getvalue()

@@ -501,6 +501,7 @@ def create_scan_record(
         low_count=scan_in.low_count or 0,
         risk_score=scan_in.risk_score or 0.0,
         duration=scan_in.duration or "2m 15s",
+        scan_data=scan_in.scan_data,
     )
     db.add(new_scan)
     db.add(models.ActivityLog(
@@ -589,23 +590,49 @@ def delete_scan_record(
 # Report Endpoints
 # ──────────────────────────────────────────────
 
+@app.get("/api/reports")
+def list_reports(db: Session = Depends(database.get_db)):
+    scans = db.query(models.Scan).order_by(models.Scan.created_at.desc()).all()
+    return [{
+        "scan_ref": s.scan_ref,
+        "target": s.target,
+        "cloud_provider": s.provider,
+        "status": s.status,
+        "risk_score": s.risk_score,
+        "executed_at": s.created_at.strftime("%Y-%m-%d %H:%M UTC") if s.created_at else "",
+    } for s in scans]
+
+
 @app.get("/api/reports/{scan_ref}")
 def get_report_by_scan_ref(scan_ref: str, db: Session = Depends(database.get_db)):
     scan = db.query(models.Scan).filter(models.Scan.scan_ref == scan_ref).first()
     if not scan:
-        scan = db.query(models.Scan).first()
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Report for scan '{scan_ref}' not found",
+        )
+
+    import json
+    parsed_data = {}
+    if scan.scan_data:
+        try:
+            parsed_data = json.loads(scan.scan_data)
+        except Exception:
+            pass
 
     return {
-        "scan_ref":       scan.scan_ref if scan else scan_ref,
-        "target":         scan.target if scan else "api.production.cloudvuln.io",
-        "cloud_provider": scan.provider if scan else "AWS US-East-1",
-        "status":         scan.status if scan else "critical",
-        "risk_score":     scan.risk_score if scan else 9.8,
-        "critical_count": scan.critical_count if scan else 1,
-        "high_count":     scan.high_count if scan else 2,
-        "medium_count":   scan.medium_count if scan else 2,
-        "low_count":      scan.low_count if scan else 0,
-        "executed_at":    scan.created_at.strftime("%Y-%m-%d %H:%M UTC") if scan and scan.created_at else "2026-07-27 18:20 UTC",
+        "scan_ref":       scan.scan_ref,
+        "target":         scan.target,
+        "cloud_provider": scan.provider,
+        "status":         scan.status,
+        "risk_score":     scan.risk_score,
+        "critical_count": scan.critical_count,
+        "high_count":     scan.high_count,
+        "medium_count":   scan.medium_count,
+        "low_count":      scan.low_count,
+        "executed_at":    scan.created_at.strftime("%Y-%m-%d %H:%M UTC") if scan.created_at else "",
+        "duration":       scan.duration,
+        "scan_data":      parsed_data
     }
 
 
@@ -616,32 +643,48 @@ def download_report_file(
     db: Session = Depends(database.get_db),
 ):
     import report_generator
+    import json
 
     scan = db.query(models.Scan).filter(models.Scan.scan_ref == scan_ref).first()
+    if not scan:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Report for scan '{scan_ref}' not found",
+        )
+        
+    parsed_data = {}
+    if scan.scan_data:
+        try:
+            parsed_data = json.loads(scan.scan_data)
+        except Exception:
+            pass
+
     scan_dict = {
-        "scan_ref":     scan.scan_ref if scan else scan_ref,
-        "target":       scan.target if scan else "api.production.cloudvuln.io",
-        "provider":     scan.provider if scan else "AWS US-East-1",
-        "status":       scan.status if scan else "critical",
-        "risk_score":   scan.risk_score if scan else 9.8,
-        "critical_count": scan.critical_count if scan else 1,
-        "high_count":   scan.high_count if scan else 2,
-        "medium_count": scan.medium_count if scan else 2,
-        "created_at":   scan.created_at.strftime("%Y-%m-%d %H:%M UTC") if scan and scan.created_at else "2026-07-27 18:20 UTC",
+        "scan_ref":     scan.scan_ref,
+        "target":       scan.target,
+        "provider":     scan.provider,
+        "status":       scan.status,
+        "risk_score":   scan.risk_score,
+        "critical_count": scan.critical_count,
+        "high_count":   scan.high_count,
+        "medium_count": scan.medium_count,
+        "low_count": scan.low_count,
+        "created_at":   scan.created_at.strftime("%Y-%m-%d %H:%M UTC") if scan.created_at else "",
+        "scan_data":    parsed_data
     }
 
-    if format.lower() == "pdf":
-        pdf_bytes = report_generator.generate_pdf_report(scan_dict)
+    if format.lower() == "csv":
+        csv_str = report_generator.generate_csv_report(scan_dict)
         return Response(
-            content=pdf_bytes,
-            media_type="application/pdf",
-            headers={"Content-Disposition": f"attachment; filename=CloudVuln_Audit_{scan_ref}.pdf"},
+            content=csv_str,
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename=CLOUDVULN_Report_{scan_ref}.csv"},
         )
     else:
         html_str = report_generator.generate_html_report(scan_dict)
         return Response(
             content=html_str,
             media_type="text/html",
-            headers={"Content-Disposition": f"attachment; filename=CloudVuln_Audit_{scan_ref}.html"},
+            headers={"Content-Disposition": f"attachment; filename=CLOUDVULN_Report_{scan_ref}.html"},
         )
 
