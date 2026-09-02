@@ -1,341 +1,473 @@
-import io
+﻿import io
 import datetime
-from typing import Dict, Any
+import html as html_module
+from typing import Dict, Any, List
+
+def _esc(val) -> str:
+    if val is None:
+        return "Not Available"
+    return html_module.escape(str(val))
+
+def _val(val, fallback="Not Available") -> str:
+    if val is None or str(val).strip() == "":
+        return fallback
+    return str(val)
+
+def _severity_badge_style(severity: str) -> str:
+    sev = severity.upper() if severity else ""
+    if "CRITICAL" in sev:
+        return "background:rgba(239,68,68,0.2);color:#f87171;border:1px solid #ef4444;"
+    if "HIGH" in sev:
+        return "background:rgba(249,115,22,0.2);color:#fb923c;border:1px solid #f97316;"
+    if "MEDIUM" in sev:
+        return "background:rgba(245,158,11,0.2);color:#fbbf24;border:1px solid #f59e0b;"
+    if "LOW" in sev:
+        return "background:rgba(96,165,250,0.2);color:#93c5fd;border:1px solid #60a5fa;"
+    if "PASS" in sev or "INFO" in sev:
+        return "background:rgba(16,185,129,0.2);color:#34d399;border:1px solid #10b981;"
+    if "WARN" in sev:
+        return "background:rgba(245,158,11,0.2);color:#fbbf24;border:1px solid #f59e0b;"
+    return "background:rgba(100,116,139,0.2);color:#94a3b8;border:1px solid #64748b;"
+
+def _status_badge_style(status: str) -> str:
+    s = (status or "").upper()
+    if s in ("PASSED", "PASS"):
+        return "background:rgba(16,185,129,0.2);color:#34d399;border:1px solid #10b981;"
+    if s in ("FAILED", "FAIL"):
+        return "background:rgba(239,68,68,0.2);color:#f87171;border:1px solid #ef4444;"
+    if s in ("WARNING", "WARN"):
+        return "background:rgba(245,158,11,0.2);color:#fbbf24;border:1px solid #f59e0b;"
+    if "VERIFY" in s or "UNABLE" in s:
+        return "background:rgba(100,116,139,0.2);color:#94a3b8;border:1px solid #64748b;"
+    return "background:rgba(100,116,139,0.2);color:#94a3b8;border:1px solid #64748b;"
+
+def _risk_color(risk_score) -> str:
+    try:
+        score = float(risk_score)
+    except (TypeError, ValueError):
+        return "#34d399"
+    if score >= 9.0:
+        return "#f87171"
+    if score >= 7.0:
+        return "#fb923c"
+    if score >= 4.0:
+        return "#fbbf24"
+    return "#34d399"
+
+def _build_whois_section(whois: Dict) -> str:
+    if not whois:
+        return ""
+    registrar = _esc(whois.get("registrar"))
+    creation = _esc(whois.get("creation_date"))
+    expiry = _esc(whois.get("expiry_date"))
+    ns_raw = whois.get("name_servers") or []
+    ns = ", ".join(_esc(n) for n in ns_raw) if ns_raw else "Not Available"
+    status_raw = whois.get("domain_status") or []
+    domain_status = ", ".join(_esc(s) for s in status_raw) if status_raw else "Not Available"
+    return (
+        '<div class="section-title">&#127760; WHOIS Domain Registration</div>'
+        '<div class="info-box">'
+        '<table style="width:100%;border-collapse:collapse;font-size:13px;">'
+        f'<tr><td style="padding:6px 10px;color:#94a3b8;width:180px;border-bottom:1px solid #1e293b;">Registrar</td><td style="padding:6px 10px;border-bottom:1px solid #1e293b;">{registrar}</td></tr>'
+        f'<tr><td style="padding:6px 10px;color:#94a3b8;border-bottom:1px solid #1e293b;">Creation Date</td><td style="padding:6px 10px;border-bottom:1px solid #1e293b;">{creation}</td></tr>'
+        f'<tr><td style="padding:6px 10px;color:#94a3b8;border-bottom:1px solid #1e293b;">Expiry Date</td><td style="padding:6px 10px;border-bottom:1px solid #1e293b;">{expiry}</td></tr>'
+        f'<tr><td style="padding:6px 10px;color:#94a3b8;border-bottom:1px solid #1e293b;">Name Servers</td><td style="padding:6px 10px;font-family:monospace;color:#38bdf8;border-bottom:1px solid #1e293b;">{ns}</td></tr>'
+        f'<tr><td style="padding:6px 10px;color:#94a3b8;">Domain Status</td><td style="padding:6px 10px;">{domain_status}</td></tr>'
+        '</table></div>'
+    )
+
+def _build_ssl_section(ssl_data: Dict) -> str:
+    if not ssl_data:
+        return ""
+    cert_status = _esc(ssl_data.get("cert_status"))
+    issuer = _esc(ssl_data.get("issuer"))
+    expiry = _esc(ssl_data.get("expiry_date"))
+    tls_ver = _esc(ssl_data.get("tls_version"))
+    days_left = _val(ssl_data.get("days_until_expiration"), "Not Available")
+    is_valid = ssl_data.get("is_valid", True)
+    recs = ssl_data.get("recommendations") or []
+    badge_style = "background:rgba(16,185,129,0.2);color:#34d399;border:1px solid #10b981;" if is_valid else "background:rgba(239,68,68,0.2);color:#f87171;border:1px solid #ef4444;"
+    recs_html = "".join(f'<li style="margin-bottom:4px;color:#94a3b8;">{_esc(r)}</li>' for r in recs)
+    recs_block = f'<div style="margin-top:12px;"><div style="font-size:12px;color:#94a3b8;margin-bottom:6px;">Recommendations:</div><ul style="padding-left:20px;margin:0;font-size:12px;">{recs_html}</ul></div>' if recs else ""
+    return (
+        '<div class="section-title">&#128274; SSL / TLS Certificate Audit</div>'
+        '<div class="info-box">'
+        '<table style="width:100%;border-collapse:collapse;font-size:13px;">'
+        f'<tr><td style="padding:6px 10px;color:#94a3b8;width:180px;border-bottom:1px solid #1e293b;">Certificate Status</td><td style="padding:6px 10px;border-bottom:1px solid #1e293b;"><span style="display:inline-block;padding:3px 10px;border-radius:9999px;font-size:11px;font-weight:700;{badge_style}">{cert_status}</span></td></tr>'
+        f'<tr><td style="padding:6px 10px;color:#94a3b8;border-bottom:1px solid #1e293b;">Issuer</td><td style="padding:6px 10px;border-bottom:1px solid #1e293b;">{issuer}</td></tr>'
+        f'<tr><td style="padding:6px 10px;color:#94a3b8;border-bottom:1px solid #1e293b;">Expiry Date</td><td style="padding:6px 10px;border-bottom:1px solid #1e293b;">{expiry} ({days_left} days remaining)</td></tr>'
+        f'<tr><td style="padding:6px 10px;color:#94a3b8;">TLS Version</td><td style="padding:6px 10px;font-family:monospace;color:#38bdf8;">{tls_ver}</td></tr>'
+        '</table>'
+        f'{recs_block}'
+        '</div>'
+    )
+
+def _build_headers_section(headers: Dict) -> str:
+    if not headers:
+        return ""
+    score = _val(headers.get("score"), "N/A")
+    passed = _val(headers.get("passed_count"), "0")
+    total = _val(headers.get("total_count"), "0")
+    checks = headers.get("checks") or []
+    rows = ""
+    for c in checks:
+        present = c.get("present", False)
+        pstyle = "background:rgba(16,185,129,0.2);color:#34d399;border:1px solid #10b981;" if present else "background:rgba(239,68,68,0.2);color:#f87171;border:1px solid #ef4444;"
+        ptext = "Present" if present else "Missing"
+        val_raw = c.get("value")
+        value_cell = f'<span style="font-family:monospace;font-size:11px;color:#38bdf8;">{_esc(val_raw)}</span>' if val_raw else '<span style="color:#64748b;">&#8212;</span>'
+        rows += (
+            f'<tr>'
+            f'<td style="padding:8px 12px;font-family:monospace;font-size:12px;font-weight:bold;color:#00f3ff;border-bottom:1px solid #1e293b;">{_esc(c.get("name"))}</td>'
+            f'<td style="padding:8px 12px;border-bottom:1px solid #1e293b;"><span style="display:inline-block;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:700;{pstyle}">{ptext}</span></td>'
+            f'<td style="padding:8px 12px;border-bottom:1px solid #1e293b;">{value_cell}</td>'
+            f'<td style="padding:8px 12px;color:#94a3b8;font-size:12px;border-bottom:1px solid #1e293b;">{_esc(c.get("risk_if_missing"))}</td>'
+            f'<td style="padding:8px 12px;color:#94a3b8;font-size:12px;border-bottom:1px solid #1e293b;">{_esc(c.get("recommendation"))}</td>'
+            f'</tr>'
+        )
+    th = '<th style="padding:10px 12px;text-align:left;color:#94a3b8;font-family:monospace;font-size:11px;text-transform:uppercase;border-bottom:1px solid #1e293b;">'
+    return (
+        '<div class="section-title">&#128737; HTTP Security Headers Analysis</div>'
+        f'<div class="info-box" style="margin-bottom:16px;"><div style="display:flex;justify-content:space-between;align-items:center;"><span style="color:#00f3ff;font-weight:bold;">Headers Score: {score}/100</span><span style="color:#94a3b8;font-size:13px;">{passed} / {total} headers present</span></div></div>'
+        '<div style="overflow-x:auto;margin-bottom:24px;"><table style="width:100%;border-collapse:collapse;">'
+        f'<thead><tr style="background:#161f33;">{th}Header</th>{th}Status</th>{th}Value</th>{th}Risk if Missing</th>{th}Recommendation</th></tr></thead>'
+        f'<tbody>{rows}</tbody></table></div>'
+    )
+
+def _build_owasp_section(owasp: Dict) -> str:
+    if not owasp:
+        return ""
+    total = _val(owasp.get("total_checks"), "0")
+    passed = _val(owasp.get("passed_checks"), "0")
+    failed = _val(owasp.get("failed_checks"), "0")
+    warnings = _val(owasp.get("warnings_count"), "0")
+    unable = _val(owasp.get("unable_to_verify_count"), "0")
+    overall = _val(owasp.get("overall_score"), "N/A")
+    risk = _val(owasp.get("risk_level"), "Unknown")
+    findings: List[Dict] = owasp.get("findings") or []
+    rows = ""
+    for f in findings:
+        status = f.get("status", "Unknown")
+        severity = f.get("severity", "Unknown")
+        sstyle = _status_badge_style(status)
+        sevstyle = _severity_badge_style(severity)
+        rows += (
+            f'<tr>'
+            f'<td style="padding:10px 12px;font-family:monospace;font-weight:bold;color:#00f3ff;border-bottom:1px solid #1e293b;font-size:12px;">{_esc(f.get("owasp_id"))}</td>'
+            f'<td style="padding:10px 12px;border-bottom:1px solid #1e293b;font-size:12px;"><strong>{_esc(f.get("category"))}</strong></td>'
+            f'<td style="padding:10px 12px;border-bottom:1px solid #1e293b;"><span style="display:inline-block;padding:3px 10px;border-radius:9999px;font-size:11px;font-weight:700;{sstyle}">{_esc(status)}</span></td>'
+            f'<td style="padding:10px 12px;border-bottom:1px solid #1e293b;"><span style="display:inline-block;padding:3px 10px;border-radius:9999px;font-size:11px;font-weight:700;{sevstyle}">{_esc(severity)}</span></td>'
+            f'<td style="padding:10px 12px;color:#e2e8f0;border-bottom:1px solid #1e293b;font-size:12px;">{_esc(f.get("title"))}</td>'
+            f'<td style="padding:10px 12px;color:#94a3b8;border-bottom:1px solid #1e293b;font-size:12px;">{_esc(f.get("recommendation"))}</td>'
+            f'</tr>'
+        )
+    if not rows:
+        rows = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#64748b;">No OWASP findings recorded for this scan.</td></tr>'
+    th = '<th style="padding:10px 12px;text-align:left;color:#94a3b8;font-family:monospace;font-size:11px;text-transform:uppercase;border-bottom:1px solid #1e293b;">'
+    return (
+        '<div class="section-title">&#9888; OWASP Top 10 Security Assessment</div>'
+        '<div class="info-box" style="margin-bottom:16px;">'
+        '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;text-align:center;">'
+        f'<div><div style="font-size:22px;font-weight:900;color:#34d399;">{passed}</div><div style="font-size:11px;color:#94a3b8;">Passed</div></div>'
+        f'<div><div style="font-size:22px;font-weight:900;color:#f87171;">{failed}</div><div style="font-size:11px;color:#94a3b8;">Failed</div></div>'
+        f'<div><div style="font-size:22px;font-weight:900;color:#fbbf24;">{warnings}</div><div style="font-size:11px;color:#94a3b8;">Warnings</div></div>'
+        f'<div><div style="font-size:22px;font-weight:900;color:#94a3b8;">{unable}</div><div style="font-size:11px;color:#94a3b8;">Unable to Verify</div></div>'
+        '</div>'
+        f'<div style="margin-top:12px;text-align:center;font-size:13px;color:#94a3b8;">Overall OWASP Score: <strong style="color:#00f3ff;">{overall}/100</strong> | Risk Level: <strong style="color:#fbbf24;">{_esc(risk)}</strong> | Total Checks: {total}</div>'
+        '</div>'
+        '<div style="overflow-x:auto;margin-bottom:24px;"><table style="width:100%;border-collapse:collapse;">'
+        f'<thead><tr style="background:#161f33;">{th}OWASP ID</th>{th}Category</th>{th}Status</th>{th}Severity</th>{th}Finding</th>{th}Recommendation</th></tr></thead>'
+        f'<tbody>{rows}</tbody></table></div>'
+    )
+
+def _build_owasp_detail_section(owasp: Dict) -> str:
+    if not owasp:
+        return ""
+    findings: List[Dict] = owasp.get("findings") or []
+    if not findings:
+        return ""
+    cards = ""
+    for f in findings:
+        status = f.get("status", "Unknown")
+        severity = f.get("severity", "Unknown")
+        sevstyle = _severity_badge_style(severity)
+        evidence = _esc(f.get("evidence") or "Not Available")
+        description = _esc(f.get("description") or "Not Available")
+        affected = _esc(f.get("affected_component") or "Not Available")
+        impact = _esc(f.get("impact") or "Not Available")
+        recommendation = _esc(f.get("recommendation") or "Not Available")
+        cve = _esc(f.get("related_cve") or "Not Available")
+        cvss = _val(f.get("cvss_score"), "Not Available")
+        reference = f.get("reference") or ""
+        owasp_id = _esc(f.get("owasp_id") or "")
+        category = _esc(f.get("category") or "")
+        title = _esc(f.get("title") or "")
+        sev_up = severity.upper()
+        border_color = "#ef4444" if "CRITICAL" in sev_up else ("#f97316" if "HIGH" in sev_up else ("#f59e0b" if "MEDIUM" in sev_up else ("#60a5fa" if "LOW" in sev_up else ("#10b981" if "PASS" in status.upper() else "#64748b"))))
+        ref_html = f'<div style="margin-top:10px;font-size:11px;color:#64748b;">Reference: <a href="{html_module.escape(reference)}" style="color:#38bdf8;">{html_module.escape(reference)}</a></div>' if reference else ""
+        cards += (
+            f'<div style="border:1px solid {border_color}33;border-left:4px solid {border_color};border-radius:10px;background:#0d1424;padding:18px;margin-bottom:16px;">'
+            f'<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">'
+            f'<span style="font-family:monospace;font-weight:bold;color:#00f3ff;font-size:13px;">{owasp_id}</span>'
+            f'<span style="font-size:13px;font-weight:bold;color:#e2e8f0;">{category}</span>'
+            f'<span style="display:inline-block;padding:3px 10px;border-radius:9999px;font-size:11px;font-weight:700;{sevstyle}">{_esc(severity)}</span>'
+            f'<span style="margin-left:auto;font-size:12px;color:#94a3b8;">{_esc(status)}</span>'
+            f'</div>'
+            f'<div style="font-size:14px;font-weight:700;color:#f1f5f9;margin-bottom:12px;">{title}</div>'
+            f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;font-size:12px;">'
+            f'<div><div style="color:#64748b;text-transform:uppercase;font-size:10px;font-family:monospace;margin-bottom:4px;">Description</div><div style="color:#cbd5e1;line-height:1.6;">{description}</div></div>'
+            f'<div><div style="color:#64748b;text-transform:uppercase;font-size:10px;font-family:monospace;margin-bottom:4px;">Evidence</div><div style="color:#cbd5e1;font-family:monospace;background:#04070d;padding:8px;border-radius:6px;border:1px solid rgba(0,243,255,0.15);">{evidence}</div></div>'
+            f'<div><div style="color:#64748b;text-transform:uppercase;font-size:10px;font-family:monospace;margin-bottom:4px;">Affected Component</div><div style="color:#38bdf8;font-family:monospace;">{affected}</div></div>'
+            f'<div><div style="color:#64748b;text-transform:uppercase;font-size:10px;font-family:monospace;margin-bottom:4px;">Impact</div><div style="color:#cbd5e1;">{impact}</div></div>'
+            f'<div><div style="color:#64748b;text-transform:uppercase;font-size:10px;font-family:monospace;margin-bottom:4px;">CVSS Score / Related CVE</div><div style="color:#fbbf24;font-family:monospace;">{cvss} &nbsp;|&nbsp; {cve}</div></div>'
+            f'<div><div style="color:#64748b;text-transform:uppercase;font-size:10px;font-family:monospace;margin-bottom:4px;">Recommendation</div><div style="color:#34d399;">{recommendation}</div></div>'
+            f'</div>'
+            f'{ref_html}'
+            f'</div>'
+        )
+    return (
+        '<div class="section-title">&#128269; OWASP Finding Details</div>'
+        f'<div style="margin-bottom:24px;">{cards}</div>'
+    )
+
+def _build_cve_section(cve_findings: List[Dict]) -> str:
+    if not cve_findings:
+        return ""
+    rows = ""
+    for c in cve_findings:
+        severity = c.get("severity", "Unknown")
+        sevstyle = _severity_badge_style(severity)
+        cve_id = _esc(c.get("cve_id") or "Not Available")
+        cvss = _val(c.get("cvss_score"), "N/A")
+        description = _esc(c.get("description") or "Not Available")
+        published = _esc(c.get("published_date") or "Not Available")
+        ref_url = c.get("reference_url") or ""
+        ref_cell = f'<a href="{html_module.escape(ref_url)}" style="color:#38bdf8;font-size:11px;font-family:monospace;">NVD &#8599;</a>' if ref_url else '<span style="color:#64748b;">N/A</span>'
+        rows += (
+            f'<tr>'
+            f'<td style="padding:10px 12px;font-family:monospace;font-weight:bold;color:#f87171;border-bottom:1px solid #1e293b;font-size:12px;">{cve_id}</td>'
+            f'<td style="padding:10px 12px;border-bottom:1px solid #1e293b;"><span style="display:inline-block;padding:3px 10px;border-radius:9999px;font-size:11px;font-weight:700;{sevstyle}">{_esc(severity)}</span></td>'
+            f'<td style="padding:10px 12px;font-family:monospace;font-weight:bold;color:#fbbf24;border-bottom:1px solid #1e293b;font-size:13px;">{_esc(str(cvss))}</td>'
+            f'<td style="padding:10px 12px;color:#cbd5e1;font-size:12px;max-width:300px;border-bottom:1px solid #1e293b;">{description}</td>'
+            f'<td style="padding:10px 12px;color:#64748b;font-size:12px;border-bottom:1px solid #1e293b;">{published}</td>'
+            f'<td style="padding:10px 12px;border-bottom:1px solid #1e293b;">{ref_cell}</td>'
+            f'</tr>'
+        )
+    th = '<th style="padding:10px 12px;text-align:left;color:#94a3b8;font-family:monospace;font-size:11px;text-transform:uppercase;border-bottom:1px solid #1e293b;">'
+    return (
+        f'<div class="section-title">&#128308; CVE / NVD Vulnerability Findings ({len(cve_findings)})</div>'
+        '<div style="overflow-x:auto;margin-bottom:24px;"><table style="width:100%;border-collapse:collapse;">'
+        f'<thead><tr style="background:#161f33;">{th}CVE ID</th>{th}Severity</th>{th}CVSS</th>{th}Description</th>{th}Published</th>{th}Reference</th></tr></thead>'
+        f'<tbody>{rows}</tbody></table></div>'
+    )
+
+def _build_recommendations_section(recommendations: List[str]) -> str:
+    if not recommendations:
+        return ""
+    items = "".join(
+        f'<li style="padding:8px 0;border-bottom:1px solid #1e293b;color:#94a3b8;font-size:13px;"><span style="color:#34d399;margin-right:8px;">&#8594;</span>{_esc(r)}</li>'
+        for r in recommendations
+    )
+    return (
+        '<div class="section-title">&#9989; Priority Recommendations</div>'
+        f'<div class="info-box"><ul style="list-style:none;padding:0;margin:0;">{items}</ul></div>'
+    )
+
+CSS = """
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background: linear-gradient(135deg, #060b14 0%, #090d1e 100%);
+    color: #e2e8f0;
+    min-height: 100vh;
+    padding: 40px 20px;
+}
+.container {
+    max-width: 1080px;
+    margin: 0 auto;
+    background: #0a1020;
+    border: 1px solid rgba(0, 243, 255, 0.2);
+    border-radius: 20px;
+    padding: 40px;
+    box-shadow: 0 0 60px rgba(0, 243, 255, 0.06), 0 20px 60px rgba(0,0,0,0.6);
+}
+.report-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 1px solid #1e293b;
+    padding-bottom: 24px;
+    margin-bottom: 32px;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+.brand-logo { font-size: 28px; font-weight: 900; color: #00f3ff; letter-spacing: -1px; text-shadow: 0 0 20px rgba(0,243,255,0.4); }
+.brand-sub { font-size: 12px; color: #64748b; font-family: monospace; margin-top: 4px; letter-spacing: 1px; }
+.report-id-block { text-align: right; }
+.report-id { font-family: monospace; font-size: 13px; color: #94a3b8; }
+.report-id strong { color: #00f3ff; }
+.meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 32px; }
+.meta-item { background: #0d1424; border: 1px solid #1e293b; border-radius: 12px; padding: 14px 18px; }
+.meta-label { font-size: 10px; text-transform: uppercase; font-family: monospace; color: #64748b; margin-bottom: 4px; letter-spacing: 0.5px; }
+.meta-value { font-size: 13px; color: #e2e8f0; font-weight: 600; }
+.summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 32px; }
+.summary-card { background: #0d1424; border: 1px solid #1e293b; border-radius: 14px; padding: 20px; text-align: center; }
+.summary-card .count { font-size: 36px; font-weight: 900; line-height: 1; margin-bottom: 6px; }
+.summary-card .label { font-size: 11px; color: #64748b; text-transform: uppercase; font-family: monospace; }
+.exec-summary { background: rgba(0,243,255,0.04); border: 1px solid rgba(0,243,255,0.25); border-left: 4px solid #00f3ff; border-radius: 12px; padding: 20px 24px; margin-bottom: 32px; font-size: 13px; line-height: 1.8; color: #cbd5e1; }
+.exec-summary-label { font-size: 10px; font-family: monospace; font-weight: 700; color: #00f3ff; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+.section-title { font-size: 16px; font-weight: 700; color: #f1f5f9; margin-bottom: 16px; border-bottom: 1px solid #1e293b; padding-bottom: 10px; margin-top: 32px; }
+.info-box { background: #0d1424; border: 1px solid #1e293b; border-radius: 12px; padding: 18px 20px; margin-bottom: 24px; font-size: 13px; line-height: 1.7; }
+.report-footer { text-align: center; font-size: 11px; color: #334155; margin-top: 48px; border-top: 1px solid #1e293b; padding-top: 24px; line-height: 1.8; }
+.report-footer strong { color: #64748b; }
+a { color: #38bdf8; }
+@media (max-width: 640px) { .summary-grid { grid-template-columns: repeat(2, 1fr); } }
+"""
 
 def generate_html_report(scan_data: Dict[str, Any]) -> str:
-    """Generate a standalone, styled HTML security audit report including WHOIS, OWASP Top 10, Security Score, and CVEs."""
-    scan_ref = scan_data.get("scan_ref", "SCAN-2026-9810")
-    target = scan_data.get("target", "api.production.cloudvuln.io")
-    provider = scan_data.get("provider", "AWS US-East-1")
-    risk_score = scan_data.get("risk_score", 9.8)
-    security_score = scan_data.get("security_score", 50)
-    status = scan_data.get("status", "critical").upper()
-    critical_count = scan_data.get("critical_count", 1)
-    high_count = scan_data.get("high_count", 2)
-    medium_count = scan_data.get("medium_count", 2)
-    low_count = scan_data.get("low_count", 0)
-    created_at = scan_data.get("created_at", "2026-07-27 18:20 UTC")
-    parsed = scan_data.get("scan_data") or {}
+    scan_ref = _esc(scan_data.get("scan_ref") or "Unknown")
+    target = _esc(scan_data.get("target") or "Unknown")
+    provider = _esc(scan_data.get("provider") or scan_data.get("cloud_provider") or "Not Available")
+    risk_score_raw = scan_data.get("risk_score") or 0.0
+    risk_score = _val(risk_score_raw, "0.0")
+    status = _esc((scan_data.get("status") or "unknown").upper())
+    critical_count = int(scan_data.get("critical_count") or 0)
+    high_count = int(scan_data.get("high_count") or 0)
+    medium_count = int(scan_data.get("medium_count") or 0)
+    low_count = int(scan_data.get("low_count") or 0)
+    total_issues = critical_count + high_count + medium_count + low_count
+    created_at = _esc(scan_data.get("created_at") or scan_data.get("executed_at") or "Not Available")
+    duration = _esc(scan_data.get("duration") or "Not Available")
 
-    exec_summary = scan_data.get("executive_summary") or f"Automated Security Posture Analysis for target {target}. Calculated Risk Score: {risk_score}/10. Critical audit findings identified."
+    parsed: Dict = scan_data.get("scan_data") or {}
+    security_score = _val(parsed.get("security_score"), "Not Available")
+    ip_address = _esc(parsed.get("ip_address") or "Not Available")
+    scan_timestamp = _esc(parsed.get("scan_timestamp") or created_at)
+    risk_level = _esc(parsed.get("risk_level") or scan_data.get("status") or "Unknown")
+    exec_summary = _esc(parsed.get("executive_summary") or f"Automated Security Posture Analysis for target {target}. Risk Score: {risk_score}/10.")
+    scan_types_raw = parsed.get("scan_types") or []
+    scan_type_from_db = scan_data.get("scan_type") or "Security Assessment"
+    scan_types_display = _esc(", ".join(scan_types_raw)) if scan_types_raw else _esc(scan_type_from_db)
 
-    whois = parsed.get("whois_summary") or {
-        "registrar": "MarkMonitor Inc. (IANA ID 292)",
-        "creation_date": "2021-04-15",
-        "expiry_date": "2028-04-15",
-        "name_servers": [f"ns1.{target}", f"ns2.{target}"],
-        "domain_status": ["clientTransferProhibited", "active"]
-    }
+    whois = parsed.get("whois_summary") or {}
+    ssl_data = parsed.get("ssl_summary") or {}
+    headers = parsed.get("headers_summary") or {}
+    owasp = parsed.get("owasp_summary") or {}
+    cve_findings: List[Dict] = parsed.get("cve_findings") or []
+    recommendations: List[str] = parsed.get("recommendations") or []
 
-    owasp = parsed.get("owasp_summary") or {
-        "total_checks": 10,
-        "passed_checks": 4,
-        "failed_checks": 3,
-        "warnings_count": 1,
-        "unable_to_verify_count": 2,
-        "critical_count": 0,
-        "high_count": 2,
-        "medium_count": 2,
-        "low_count": 0,
-        "overall_score": 75,
-        "risk_level": "Medium",
-        "findings": [
-            {
-                "owasp_id": "A01:2021",
-                "category": "Broken Access Control",
-                "title": "Access Control Transport Policy Compliant",
-                "status": "Passed",
-                "severity": "Passed",
-                "recommendation": "Continue enforcing granular RBAC."
-            },
-            {
-                "owasp_id": "A02:2021",
-                "category": "Cryptographic Failures",
-                "title": "HSTS Header Missing on Transport",
-                "status": "Failed",
-                "severity": "Medium",
-                "recommendation": "Set Strict-Transport-Security header."
-            },
-            {
-                "owasp_id": "A03:2021",
-                "category": "Injection",
-                "title": "Missing Content Security Policy (CSP)",
-                "status": "Warning",
-                "severity": "High",
-                "recommendation": "Deploy Content-Security-Policy header."
-            },
-            {
-                "owasp_id": "A04:2021",
-                "category": "Insecure Design",
-                "title": "Architecture Design Inspection",
-                "status": "Unable to Verify",
-                "severity": "Unable to Verify",
-                "recommendation": "Perform formal threat modeling review."
-            }
-        ]
-    }
+    whois_html = _build_whois_section(whois) if whois else ""
+    ssl_html = _build_ssl_section(ssl_data) if ssl_data else ""
+    headers_html = _build_headers_section(headers) if headers else ""
+    owasp_summary_html = _build_owasp_section(owasp) if owasp else ""
+    owasp_detail_html = _build_owasp_detail_section(owasp) if owasp else ""
+    cve_html = _build_cve_section(cve_findings) if cve_findings else ""
+    recs_html = _build_recommendations_section(recommendations) if recommendations else ""
 
-    owasp_findings_rows = ""
-    for f in owasp.get("findings", []):
-        sev = f.get("severity", "Passed")
-        badge_cls = "badge-critical" if sev == "Critical" else ("badge-high" if sev == "High" else ("badge-success" if sev == "Passed" else "badge-high"))
-        owasp_findings_rows += f"""
-        <tr>
-            <td style="font-family: monospace; font-weight: bold; color: #00f3ff;">{f.get('owasp_id')}</td>
-            <td><strong>{f.get('category')}</strong></td>
-            <td><span class="badge {badge_cls}">{f.get('status')}</span></td>
-            <td style="color: #cbd5e1;">{sev}</td>
-            <td>{f.get('title')}</td>
-            <td style="color: #94a3b8;">{f.get('recommendation')}</td>
-        </tr>"""
+    risk_color = _risk_color(risk_score_raw)
+    generated_at = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+    status_border = "#ef4444" if "CRITICAL" in status else ("#f97316" if "HIGH" in status else ("#f59e0b" if "MEDIUM" in status else "#10b981"))
 
-    html = f"""<!DOCTYPE html>
+    status_badge = (
+        f'<span style="display:inline-block;padding:6px 16px;border-radius:9999px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-top:6px;'
+        f'background:rgba(239,68,68,0.15);border:1px solid {status_border};color:{status_border};">{status}</span>'
+    )
+
+    return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CloudVuln Security Audit Report - {scan_ref}</title>
-    <style>
-        body {{
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background-color: #090d16;
-            color: #e2e8f0;
-            margin: 0;
-            padding: 40px 20px;
-        }}
-        .container {{
-            max-width: 960px;
-            margin: 0 auto;
-            background-color: #0d1424;
-            border: 1px solid rgba(0, 243, 255, 0.3);
-            border-radius: 16px;
-            padding: 32px;
-            box-shadow: 0 0 40px rgba(0, 243, 255, 0.1);
-        }}
-        .header {{
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #1e293b;
-            padding-bottom: 20px;
-            margin-bottom: 24px;
-        }}
-        .brand {{
-            font-size: 24px;
-            font-weight: 900;
-            color: #00f3ff;
-            letter-spacing: -0.5px;
-        }}
-        .badge {{
-            display: inline-block;
-            padding: 6px 12px;
-            border-radius: 9999px;
-            font-size: 12px;
-            font-weight: 700;
-            text-transform: uppercase;
-        }}
-        .badge-critical {{ background-color: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid #ef4444; }}
-        .badge-high {{ background-color: rgba(251, 146, 60, 0.2); color: #fb923c; border: 1px solid #f97316; }}
-        .badge-success {{ background-color: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid #10b981; }}
-        .metrics-grid {{
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 16px;
-            margin-bottom: 32px;
-        }}
-        .metric-card {{
-            background-color: #161f33;
-            border: 1px solid #1e293b;
-            border-radius: 12px;
-            padding: 16px;
-            text-align: center;
-        }}
-        .metric-val {{
-            font-size: 28px;
-            font-weight: 900;
-            margin-top: 4px;
-        }}
-        .text-rose {{ color: #f87171; }}
-        .text-orange {{ color: #fb923c; }}
-        .text-emerald {{ color: #34d399; }}
-        .text-cyan {{ color: #38bdf8; }}
-        .section-title {{
-            font-size: 18px;
-            font-weight: 700;
-            color: #f1f5f9;
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            border-bottom: 1px solid #1e293b;
-            padding-bottom: 8px;
-        }}
-        .info-box {{
-            background-color: #161f33;
-            border: 1px solid #1e293b;
-            border-radius: 12px;
-            padding: 16px;
-            margin-bottom: 24px;
-            font-size: 13px;
-            line-height: 1.6;
-        }}
-        table {{
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 24px;
-        }}
-        th, td {{
-            padding: 10px 14px;
-            text-align: left;
-            border-bottom: 1px solid #1e293b;
-            font-size: 12px;
-        }}
-        th {{
-            background-color: #161f33;
-            color: #94a3b8;
-            font-family: monospace;
-            text-transform: uppercase;
-        }}
-        .code-box {{
-            background-color: #04070d;
-            border: 1px solid rgba(0, 243, 255, 0.2);
-            border-radius: 8px;
-            padding: 10px;
-            font-family: monospace;
-            font-size: 12px;
-            color: #38bdf8;
-            overflow-x: auto;
-        }}
-        .footer {{
-            text-align: center;
-            font-size: 12px;
-            color: #64748b;
-            margin-top: 40px;
-            border-top: 1px solid #1e293b;
-            padding-top: 20px;
-        }}
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CloudVuln Security Report - {scan_ref}</title>
+<style>{CSS}
+.c-critical {{ color: #f87171; }}
+.c-high {{ color: #fb923c; }}
+.c-medium {{ color: #fbbf24; }}
+.c-low {{ color: #60a5fa; }}
+</style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <div>
-                <div class="brand">CloudVuln Security Assessment Report</div>
-                <div style="font-size: 13px; color: #94a3b8; margin-top: 4px;">Target: <strong>{target}</strong> | {provider}</div>
-            </div>
-            <div>
-                <span class="badge badge-critical">{status} AUDIT</span>
-            </div>
-        </div>
-
-        <div class="metrics-grid">
-            <div class="metric-card">
-                <div style="font-size: 11px; color: #94a3b8; text-transform: uppercase;">Risk Score</div>
-                <div class="metric-val text-emerald">{risk_score}/10</div>
-            </div>
-            <div class="metric-card">
-                <div style="font-size: 11px; color: #94a3b8; text-transform: uppercase;">Critical Vulns</div>
-                <div class="metric-val text-rose">{critical_count}</div>
-            </div>
-            <div class="metric-card">
-                <div style="font-size: 11px; color: #94a3b8; text-transform: uppercase;">High Severity</div>
-                <div class="metric-val text-orange">{high_count}</div>
-            </div>
-            <div class="metric-card">
-                <div style="font-size: 11px; color: #94a3b8; text-transform: uppercase;">Medium & Low</div>
-                <div class="metric-val text-cyan">{medium_count + low_count}</div>
-            </div>
-        </div>
-
-        <div class="section-title">📋 Executive Summary & Posture Index</div>
-        <div class="info-box" style="border-left: 4px solid #00f3ff;">
-            {exec_summary}
-        </div>
-
-        <!-- WHOIS Box -->
-        <div class="info-box">
-            <div style="font-weight: bold; color: #00f3ff; margin-bottom: 8px;">🌐 WHOIS Domain Registration</div>
-            <div><strong>Registrar:</strong> {whois.get('registrar')}</div>
-            <div><strong>Creation Date:</strong> {whois.get('creation_date')}</div>
-            <div><strong>Expiry Date:</strong> {whois.get('expiry_date')}</div>
-            <div><strong>Name Servers:</strong> {', '.join(whois.get('name_servers', []))}</div>
-            <div><strong>Status:</strong> {', '.join(whois.get('domain_status', []))}</div>
-        </div>
-
-        <!-- OWASP Top 10 Section -->
-        <div class="section-title">🛡️ OWASP Top 10 Security Assessment</div>
-        <div class="info-box" style="margin-bottom: 16px;">
-            <div style="display: flex; justify-content: space-between; font-weight: bold; color: #00f3ff; margin-bottom: 8px;">
-                <span>OWASP Assessment Summary</span>
-                <span>Passed: {owasp.get('passed_checks', 0)} / 10 | Unable to Verify: {owasp.get('unable_to_verify_count', 0)}</span>
-            </div>
-            <div>Evaluated target HTTP/HTTPS response directives, SSL/TLS parameters, cookie flags, server banners, and public NVD CVE associations against OWASP Top 10 categories.</div>
-        </div>
-
-        <table>
-            <thead>
-                <tr>
-                    <th>OWASP ID</th>
-                    <th>Category</th>
-                    <th>Status</th>
-                    <th>Severity</th>
-                    <th>Finding Title</th>
-                    <th>Recommendation</th>
-                </tr>
-            </thead>
-            <tbody>
-                {owasp_findings_rows}
-            </tbody>
-        </table>
-
-        <div class="section-title">🔧 Priority SecOps Remediation Commands</div>
-        <div style="margin-bottom: 16px;">
-            <div style="font-size: 13px; font-weight: bold; margin-bottom: 6px; color: #34d399;">1. Fix CVE-2026-1184 (Tomcat RCE)</div>
-            <div class="code-box">$ kubectl set image deployment/api-gateway api-gateway=tomcat:9.0.85-jdk17-corretto --namespace=production</div>
-        </div>
-        <div style="margin-bottom: 24px;">
-            <div style="font-size: 13px; font-weight: bold; margin-bottom: 6px; color: #34d399;">2. Deploy Strict Content-Security-Policy Header</div>
-            <div class="code-box">$ add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'nonce-rAnd0m'; object-src 'none';";</div>
-        </div>
-
-        <div class="footer">
-            Generated by <strong>CloudVuln Security Engine v2.0</strong> | Execution Timestamp: {created_at}
-        </div>
-    </div>
+<div class="container">
+<div class="report-header">
+  <div>
+    <div class="brand-logo">&#9729; CloudVuln</div>
+    <div class="brand-sub">SECURITY ASSESSMENT REPORT</div>
+  </div>
+  <div class="report-id-block">
+    <div class="report-id">Report ID: <strong>{scan_ref}</strong></div>
+    <div class="report-id" style="margin-top:4px;">Target: <strong style="color:#e2e8f0;">{target}</strong></div>
+    <div class="report-id" style="margin-top:4px;">Provider: <strong style="color:#94a3b8;">{provider}</strong></div>
+    {status_badge}
+  </div>
+</div>
+<div class="meta-grid">
+  <div class="meta-item"><div class="meta-label">IP Address</div><div class="meta-value" style="font-family:monospace;color:#38bdf8;">{ip_address}</div></div>
+  <div class="meta-item"><div class="meta-label">Scan Date</div><div class="meta-value">{scan_timestamp}</div></div>
+  <div class="meta-item"><div class="meta-label">Duration</div><div class="meta-value">{duration}</div></div>
+  <div class="meta-item"><div class="meta-label">Scan Modules</div><div class="meta-value" style="font-size:11px;">{scan_types_display}</div></div>
+  <div class="meta-item"><div class="meta-label">Security Score</div><div class="meta-value" style="color:#34d399;font-size:18px;font-weight:900;">{security_score}/100</div></div>
+  <div class="meta-item"><div class="meta-label">Risk Level</div><div class="meta-value">{risk_level}</div></div>
+  <div class="meta-item"><div class="meta-label">Total Findings</div><div class="meta-value" style="color:#f87171;">{total_issues}</div></div>
+  <div class="meta-item"><div class="meta-label">Generated At</div><div class="meta-value" style="font-size:11px;font-family:monospace;">{generated_at}</div></div>
+</div>
+<div class="summary-grid">
+  <div class="summary-card" style="border-color:rgba(239,68,68,0.3);"><div class="count c-critical">{critical_count}</div><div class="label">Critical</div></div>
+  <div class="summary-card" style="border-color:rgba(249,115,22,0.3);"><div class="count c-high">{high_count}</div><div class="label">High</div></div>
+  <div class="summary-card" style="border-color:rgba(245,158,11,0.3);"><div class="count c-medium">{medium_count}</div><div class="label">Medium</div></div>
+  <div class="summary-card" style="border-color:rgba(96,165,250,0.3);"><div class="count c-low">{low_count}</div><div class="label">Low</div></div>
+</div>
+<div class="exec-summary">
+  <div class="exec-summary-label">Executive Summary &amp; Posture Evaluation</div>
+  {exec_summary}
+</div>
+{whois_html}
+{ssl_html}
+{headers_html}
+{owasp_summary_html}
+{owasp_detail_html}
+{cve_html}
+{recs_html}
+<div class="report-footer">
+  <div>Generated by <strong>CloudVuln Security Engine v2.0</strong></div>
+  <div>Report ID: <strong>{scan_ref}</strong> | Target: <strong>{target}</strong></div>
+  <div>Execution: <strong>{scan_timestamp}</strong> | Generated: <strong>{generated_at}</strong></div>
+  <div style="margin-top:8px;color:#1e293b;">This report is confidential and intended solely for authorized security personnel.</div>
+</div>
+</div>
 </body>
 </html>"""
-    return html
+
 
 def generate_csv_report(scan_data: Dict[str, Any]) -> str:
-    """Generate a CSV report containing the OWASP findings and risk summary."""
     import csv
-    import io
-    
     parsed = scan_data.get("scan_data") or {}
     owasp = parsed.get("owasp_summary") or {}
-    findings = owasp.get("findings", [])
-    
+    findings = owasp.get("findings") or []
+    cve_findings = parsed.get("cve_findings") or []
     output = io.StringIO()
     writer = csv.writer(output)
-    
-    # Write summary
-    writer.writerow(["Scan Reference", scan_data.get("scan_ref")])
-    writer.writerow(["Target", scan_data.get("target")])
-    writer.writerow(["Risk Score", scan_data.get("risk_score")])
-    writer.writerow(["Status", scan_data.get("status")])
-    writer.writerow(["Created At", scan_data.get("created_at")])
+    writer.writerow(["CloudVuln Security Report"])
     writer.writerow([])
-    
-    # Write findings
-    writer.writerow(["OWASP ID", "Category", "Status", "Severity", "Finding Title", "Recommendation"])
-    for f in findings:
-        writer.writerow([
-            f.get("owasp_id", ""),
-            f.get("category", ""),
-            f.get("status", ""),
-            f.get("severity", ""),
-            f.get("title", ""),
-            f.get("recommendation", "")
-        ])
-        
+    writer.writerow(["Scan Reference", scan_data.get("scan_ref", "")])
+    writer.writerow(["Target", scan_data.get("target", "")])
+    writer.writerow(["Provider", scan_data.get("provider", scan_data.get("cloud_provider", ""))])
+    writer.writerow(["Risk Score", scan_data.get("risk_score", "")])
+    writer.writerow(["Status", scan_data.get("status", "")])
+    writer.writerow(["Critical Count", scan_data.get("critical_count", 0)])
+    writer.writerow(["High Count", scan_data.get("high_count", 0)])
+    writer.writerow(["Medium Count", scan_data.get("medium_count", 0)])
+    writer.writerow(["Low Count", scan_data.get("low_count", 0)])
+    writer.writerow(["Created At", scan_data.get("created_at", scan_data.get("executed_at", ""))])
+    writer.writerow([])
+    if findings:
+        writer.writerow(["OWASP Top 10 Findings"])
+        writer.writerow(["OWASP ID", "Category", "Title", "Status", "Severity", "Description", "Evidence", "Affected Component", "Impact", "Recommendation", "CVSS Score", "Related CVE", "Reference"])
+        for f in findings:
+            writer.writerow([f.get("owasp_id",""), f.get("category",""), f.get("title",""), f.get("status",""), f.get("severity",""), f.get("description",""), f.get("evidence",""), f.get("affected_component",""), f.get("impact",""), f.get("recommendation",""), f.get("cvss_score",""), f.get("related_cve",""), f.get("reference","")])
+        writer.writerow([])
+    if cve_findings:
+        writer.writerow(["CVE / NVD Findings"])
+        writer.writerow(["CVE ID", "Severity", "CVSS Score", "Description", "Published Date", "Reference URL"])
+        for c in cve_findings:
+            writer.writerow([c.get("cve_id",""), c.get("severity",""), c.get("cvss_score",""), c.get("description",""), c.get("published_date",""), c.get("reference_url","")])
     return output.getvalue()

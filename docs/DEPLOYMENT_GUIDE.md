@@ -47,8 +47,8 @@ In the Render Web Service **Environment** tab, set the following environment var
 | :--- | :--- | :--- |
 | `APP_ENV` | `production` | Enables production error handling |
 | `LOG_LEVEL` | `INFO` | Controls logging verbosity |
-| `PORT` | `8090` | Internal application port |
-| `BIND` | `0.0.0.0:8090` | Binding network interface |
+| `PORT` | `8000` | Internal application port |
+| `BIND` | `0.0.0.0:8000` | Binding network interface |
 | `SECRET_KEY` | `[Generate 64-char hex]` | Primary JWT signature key |
 | `REFRESH_SECRET_KEY` | `[Generate 64-char hex]` | JWT Refresh token key |
 | `ALLOWED_ORIGINS` | `https://cloudvuln-frontend.vercel.app` | Allowed CORS origins |

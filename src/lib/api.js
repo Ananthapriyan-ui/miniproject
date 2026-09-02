@@ -247,9 +247,9 @@ export const api = {
     }),
 
   // Reports
-  getReport: (scanRef) =>
-    apiFetch(`/reports/${encodeURIComponent(scanRef)}`, {}, true, 60_000),
-
+  getReports: () => apiFetch('/reports', {}, false),
+  getReport: (scanRef) => apiFetch(`/reports/${encodeURIComponent(scanRef)}`, {}, false),
+  getReportHtmlUrl: (scanRef) => `/api/reports/${encodeURIComponent(scanRef)}/html`,
   getReportDownloadUrl: (scanRef, format = 'html') =>
     `/api/reports/${encodeURIComponent(scanRef)}/download?format=${format}`,
 

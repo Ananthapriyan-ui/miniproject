@@ -23,7 +23,9 @@ export const Navbar = ({ collapsed }) => {
     '/settings': 'Platform & Cloud Integrations',
   };
 
-  const currentTitle = pathMap[location.pathname] || 'Cloud Vulnerability Scanner';
+  const currentTitle = location.pathname.startsWith('/reports')
+    ? 'Detailed Scan Assessment Report'
+    : (pathMap[location.pathname] || 'Cloud Vulnerability Scanner');
 
   const mockNotifications = [
     { id: 1, title: 'CRITICAL CVE-2026-1184 Detected', time: '10m ago', unread: true },

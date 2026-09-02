@@ -368,19 +368,3 @@ class SecurityAnalysisResponse(BaseModel):
     recommendations: List[str]
 
 
-# ──────────────────────────────────────────────
-# Report Schemas
-# ──────────────────────────────────────────────
-
-class ReportResponse(BaseModel):
-    id: int
-    report_ref: str
-    scan_ref: str
-    target: str
-    executive_summary: str
-    pdf_url: Optional[str] = None
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-

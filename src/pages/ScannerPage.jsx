@@ -52,6 +52,7 @@ export const ScannerPage = () => {
   const [analysisResult, setAnalysisResult] = useState(null);
   const [cveResults, setCveResults] = useState([]);
   const [activeEvidenceModal, setActiveEvidenceModal] = useState(null);
+  const [lastScanRef, setLastScanRef] = useState(null);
 
   // Conduct Security Posture Analysis
   const handleAnalyzeTarget = async (e) => {
@@ -83,7 +84,7 @@ export const ScannerPage = () => {
 
         // Persist scan run in database
         try {
-          await fetch('/api/scans', {
+          const scanRes = await fetch('/api/scans', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -94,15 +95,21 @@ export const ScannerPage = () => {
               provider: 'AWS US-East-1',
               scan_type: selectedScanType,
               status: data.risk_level === 'Low' ? 'passed' : data.risk_level.toLowerCase(),
-              critical_count: data.risk_level === 'Critical' ? 1 : 0,
-              high_count: data.risk_level === 'High' ? 2 : 0,
-              medium_count: 2,
-              low_count: 3,
-              risk_score: (100 - data.security_score) / 10,
+              critical_count: data.critical_count || 0,
+              high_count: data.high_count || 0,
+              medium_count: data.medium_count || 0,
+              low_count: data.low_count || 0,
+              risk_score: parseFloat(((100 - (data.security_score || 100)) / 10).toFixed(1)),
               duration: '1m 20s',
               scan_data: JSON.stringify(data)
             })
           });
+          if (scanRes.ok) {
+            const savedScan = await scanRes.json();
+            if (savedScan && savedScan.scan_ref) {
+              setLastScanRef(savedScan.scan_ref);
+            }
+          }
         } catch (e) {
           console.warn('Failed to auto-save scan record', e);
         }
@@ -468,16 +475,16 @@ export const ScannerPage = () => {
                   variant="outline"
                   size="sm"
                   icon={FileText}
-                  onClick={() => navigate('/reports/DEFAULT-001')}
+                  onClick={() => navigate(`/reports/${lastScanRef || '1'}`)}
                 >
                   View Report
                 </Button>
                 <a
-                  href="/api/reports/DEFAULT-001/download?format=pdf"
+                  href={`/api/reports/${lastScanRef || '1'}/download?format=html`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="p-2 rounded-xl bg-slate-900 border border-slate-700 text-cyan-400 hover:border-cyan-400 transition-all"
-                  title="Download PDF Report"
+                  title="Download HTML Report"
                 >
                   <Download className="w-4 h-4" />
                 </a>

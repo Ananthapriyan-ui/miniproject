@@ -12,9 +12,9 @@ services:
       - key: LOG_LEVEL
         value: INFO
       - key: PORT
-        value: 8090
+        value: 8000
       - key: BIND
-        value: 0.0.0.0:8090
+        value: 0.0.0.0:8000
       - key: SECRET_KEY
         generateValue: true
       - key: REFRESH_SECRET_KEY

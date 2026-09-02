@@ -130,7 +130,7 @@ async def security_middleware(request: Request, call_next):
 
     # ─── Security Headers ───
     response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
@@ -142,7 +142,7 @@ async def security_middleware(request: Request, call_next):
         "img-src 'self' data: https:; "
         "font-src 'self' data:; "
         "connect-src 'self' https://nvd.nist.gov https://api.first.org; "
-        "frame-ancestors 'none';"
+        "frame-ancestors 'self';"
     )
     response.headers["X-Request-ID"] = request_id
     response.headers["X-Process-Time"] = f"{duration_ms}ms"
@@ -504,13 +504,28 @@ def create_scan_record(
         scan_data=scan_in.scan_data,
     )
     db.add(new_scan)
+    db.commit()
+    db.refresh(new_scan)
+
+    new_report = models.Report(
+        report_ref=f"REP-{scan_ref}",
+        scan_ref=scan_ref,
+        target=scan_in.target,
+        executive_summary=f"Automated Security Posture Analysis for target {scan_in.target}.",
+        scan_type=scan_in.scan_type or "Cloud Misconfig",
+        duration=scan_in.duration or "2m 15s",
+        html_generated=True,
+        csv_generated=True,
+    )
+    db.add(new_report)
+
     db.add(models.ActivityLog(
         text=f"New assessment recorded: {scan_ref} on {scan_in.target}",
         type="info" if scan_in.status == "passed" else "warning",
         time_ago="Just now",
     ))
     db.commit()
-    db.refresh(new_scan)
+    
     logger.info(f"Scan created: {scan_ref} | target={scan_in.target}")
     return new_scan
 
@@ -555,11 +570,22 @@ def get_scans_history(
     return query.offset(offset).limit(limit).all()
 
 
-@app.get("/api/scans/{scan_ref}", response_model=schemas.ScanDetailResponse)
-def get_scan_by_ref(scan_ref: str, db: Session = Depends(database.get_db)):
+def _get_scan_by_any_ref(scan_ref: str, db: Session) -> models.Scan:
     scan = db.query(models.Scan).filter(models.Scan.scan_ref == scan_ref).first()
     if not scan:
+        report = db.query(models.Report).filter(models.Report.report_ref == scan_ref).first()
+        if report:
+            scan = db.query(models.Scan).filter(models.Scan.scan_ref == report.scan_ref).first()
+    if not scan and scan_ref.isdigit():
+        scan = db.query(models.Scan).filter(models.Scan.id == int(scan_ref)).first()
+    if not scan:
         scan = db.query(models.Scan).filter(models.Scan.target.ilike(f"%{scan_ref}%")).first()
+    return scan
+
+
+@app.get("/api/scans/{scan_ref}", response_model=schemas.ScanDetailResponse)
+def get_scan_by_ref(scan_ref: str, db: Session = Depends(database.get_db)):
+    scan = _get_scan_by_any_ref(scan_ref, db)
     if not scan:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -574,16 +600,17 @@ def delete_scan_record(
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(security.require_roles(["Admin", "SecOps Lead"])),
 ):
-    scan = db.query(models.Scan).filter(models.Scan.scan_ref == scan_ref).first()
+    scan = _get_scan_by_any_ref(scan_ref, db)
     if not scan:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Scan '{scan_ref}' not found",
         )
+    ref = scan.scan_ref
     db.delete(scan)
     db.commit()
-    logger.info(f"Scan '{scan_ref}' deleted by {current_user.email}")
-    return {"message": f"Scan '{scan_ref}' deleted successfully", "scan_ref": scan_ref}
+    logger.info(f"Scan '{ref}' deleted by {current_user.email}")
+    return {"message": f"Scan '{ref}' deleted successfully", "scan_ref": ref}
 
 
 # ──────────────────────────────────────────────
@@ -594,18 +621,23 @@ def delete_scan_record(
 def list_reports(db: Session = Depends(database.get_db)):
     scans = db.query(models.Scan).order_by(models.Scan.created_at.desc()).all()
     return [{
+        "id": s.id,
         "scan_ref": s.scan_ref,
         "target": s.target,
         "cloud_provider": s.provider,
         "status": s.status,
         "risk_score": s.risk_score,
+        "critical_count": s.critical_count,
+        "high_count": s.high_count,
+        "medium_count": s.medium_count,
+        "low_count": s.low_count,
         "executed_at": s.created_at.strftime("%Y-%m-%d %H:%M UTC") if s.created_at else "",
     } for s in scans]
 
 
 @app.get("/api/reports/{scan_ref}")
 def get_report_by_scan_ref(scan_ref: str, db: Session = Depends(database.get_db)):
-    scan = db.query(models.Scan).filter(models.Scan.scan_ref == scan_ref).first()
+    scan = _get_scan_by_any_ref(scan_ref, db)
     if not scan:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -621,6 +653,7 @@ def get_report_by_scan_ref(scan_ref: str, db: Session = Depends(database.get_db)
             pass
 
     return {
+        "id":             scan.id,
         "scan_ref":       scan.scan_ref,
         "target":         scan.target,
         "cloud_provider": scan.provider,
@@ -636,6 +669,47 @@ def get_report_by_scan_ref(scan_ref: str, db: Session = Depends(database.get_db)
     }
 
 
+@app.get("/api/reports/{scan_ref}/html")
+def get_report_html(scan_ref: str, db: Session = Depends(database.get_db)):
+    import report_generator
+    import json
+
+    scan = _get_scan_by_any_ref(scan_ref, db)
+    if not scan:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Report for scan '{scan_ref}' not found",
+        )
+
+    parsed_data = {}
+    if scan.scan_data:
+        try:
+            parsed_data = json.loads(scan.scan_data)
+        except Exception:
+            pass
+
+    scan_dict = {
+        "scan_ref":       scan.scan_ref,
+        "target":         scan.target,
+        "provider":       scan.provider,
+        "status":         scan.status,
+        "risk_score":     scan.risk_score,
+        "critical_count": scan.critical_count,
+        "high_count":     scan.high_count,
+        "medium_count":   scan.medium_count,
+        "low_count":      scan.low_count,
+        "created_at":     scan.created_at.strftime("%Y-%m-%d %H:%M UTC") if scan.created_at else "",
+        "scan_data":      parsed_data
+    }
+
+    html_str = report_generator.generate_html_report(scan_dict)
+    return Response(
+        content=html_str,
+        media_type="text/html",
+        headers={"Content-Type": "text/html; charset=utf-8"},
+    )
+
+
 @app.get("/api/reports/{scan_ref}/download")
 def download_report_file(
     scan_ref: str,
@@ -645,13 +719,13 @@ def download_report_file(
     import report_generator
     import json
 
-    scan = db.query(models.Scan).filter(models.Scan.scan_ref == scan_ref).first()
+    scan = _get_scan_by_any_ref(scan_ref, db)
     if not scan:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Report for scan '{scan_ref}' not found",
         )
-        
+
     parsed_data = {}
     if scan.scan_data:
         try:
@@ -660,17 +734,17 @@ def download_report_file(
             pass
 
     scan_dict = {
-        "scan_ref":     scan.scan_ref,
-        "target":       scan.target,
-        "provider":     scan.provider,
-        "status":       scan.status,
-        "risk_score":   scan.risk_score,
+        "scan_ref":       scan.scan_ref,
+        "target":         scan.target,
+        "provider":       scan.provider,
+        "status":         scan.status,
+        "risk_score":     scan.risk_score,
         "critical_count": scan.critical_count,
-        "high_count":   scan.high_count,
-        "medium_count": scan.medium_count,
-        "low_count": scan.low_count,
-        "created_at":   scan.created_at.strftime("%Y-%m-%d %H:%M UTC") if scan.created_at else "",
-        "scan_data":    parsed_data
+        "high_count":     scan.high_count,
+        "medium_count":   scan.medium_count,
+        "low_count":      scan.low_count,
+        "created_at":     scan.created_at.strftime("%Y-%m-%d %H:%M UTC") if scan.created_at else "",
+        "scan_data":      parsed_data
     }
 
     if format.lower() == "csv":
@@ -678,13 +752,13 @@ def download_report_file(
         return Response(
             content=csv_str,
             media_type="text/csv",
-            headers={"Content-Disposition": f"attachment; filename=CLOUDVULN_Report_{scan_ref}.csv"},
+            headers={"Content-Disposition": f"attachment; filename=CLOUDVULN_Report_{scan.scan_ref}.csv"},
         )
     else:
         html_str = report_generator.generate_html_report(scan_dict)
         return Response(
             content=html_str,
             media_type="text/html",
-            headers={"Content-Disposition": f"attachment; filename=CLOUDVULN_Report_{scan_ref}.html"},
+            headers={"Content-Disposition": f"attachment; filename=CLOUDVULN_Report_{scan.scan_ref}.html"},
         )
 

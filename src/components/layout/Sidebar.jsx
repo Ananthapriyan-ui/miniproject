@@ -26,7 +26,7 @@ export const Sidebar = ({ collapsed, setCollapsed }) => {
     { label: 'Dashboard', path: '/', icon: LayoutDashboard },
     { label: 'Cloud Scanner', path: '/scanner', icon: Radar, badge: 'LIVE' },
     { label: 'Scan History', path: '/history', icon: History },
-    { label: 'Vulnerability Report', path: '/reports/DEFAULT-001', icon: FileText },
+    { label: 'Vulnerability Report', path: '/reports/1', icon: FileText },
     { label: 'Security Profile', path: '/profile', icon: User },
     { label: 'Settings', path: '/settings', icon: Settings },
   ];

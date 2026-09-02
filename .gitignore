@@ -1,0 +1,23 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+*.sqlite3
+
+# IDEs and OS
+.vscode/
+.idea/
+.DS_Store

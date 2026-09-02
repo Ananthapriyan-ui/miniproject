@@ -94,7 +94,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 
 # Start backend server in development mode
-py -m uvicorn main:app --host 127.0.0.1 --port 8090 --reload
+py -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
 ### 2. Frontend Setup
@@ -110,7 +110,7 @@ npm install
 npm run dev
 ```
 
-The frontend application will be running at `http://localhost:3000` with automated proxying to the backend API at `http://127.0.0.1:8090/api`.
+The frontend application will be running at `http://localhost:3000` with automated proxying to the backend API at `http://127.0.0.1:8000/api`.
 
 ---
 
