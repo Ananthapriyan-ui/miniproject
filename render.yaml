@@ -3,7 +3,7 @@ services:
     name: cloudvuln-api
     env: python
     buildCommand: "pip install -r backend/requirements.txt"
-    startCommand: "gunicorn -c backend/gunicorn.conf.py backend.main:app"
+    startCommand: "cd backend && gunicorn -c gunicorn.conf.py main:app"
     envVars:
       - key: PYTHON_VERSION
         value: 3.10.12
@@ -20,7 +20,7 @@ services:
       - key: REFRESH_SECRET_KEY
         generateValue: true
       - key: ALLOWED_ORIGINS
-        value: "https://cloudvuln-frontend.vercel.app,http://localhost:3000"
+        value: "https://miniproject.vercel.app,https://cloudvuln-frontend.vercel.app,http://localhost:3000,http://127.0.0.1:3000"
       - key: DATABASE_URL
         value: "sqlite:////var/data/cloudvuln.db"
     disk:

@@ -5,13 +5,18 @@ dist/
 !.env.example
 *.log
 
+# Backend .env (NEVER commit secrets)
+backend/.env
+backend/.env.*
+!backend/.env.example
+
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 
-# Database
+# Database files
 *.db
 *.db-shm
 *.db-wal
@@ -21,3 +26,4 @@ __pycache__/
 .vscode/
 .idea/
 .DS_Store
+

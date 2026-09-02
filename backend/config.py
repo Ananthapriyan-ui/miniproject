@@ -1,4 +1,5 @@
 import os
+import json
 from typing import List, Any
 from pydantic_settings import BaseSettings  # type: ignore[import-untyped]
 
@@ -14,7 +15,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-    # CORS
+    # CORS — accepts a comma-separated string, a JSON array string, or a list
     ALLOWED_ORIGINS: Any = [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
@@ -35,10 +36,20 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins(self) -> List[str]:
-        if isinstance(self.ALLOWED_ORIGINS, str):
-            return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",") if origin.strip()]
         if isinstance(self.ALLOWED_ORIGINS, list):
-            return self.ALLOWED_ORIGINS
+            return [str(o).strip() for o in self.ALLOWED_ORIGINS if str(o).strip()]
+        if isinstance(self.ALLOWED_ORIGINS, str):
+            raw = self.ALLOWED_ORIGINS.strip()
+            # Handle JSON array format: ["url1", "url2"]
+            if raw.startswith("["):
+                try:
+                    parsed = json.loads(raw)
+                    if isinstance(parsed, list):
+                        return [str(o).strip() for o in parsed if str(o).strip()]
+                except (json.JSONDecodeError, ValueError):
+                    pass
+            # Handle comma-separated format: url1,url2
+            return [origin.strip() for origin in raw.split(",") if origin.strip()]
         return ["http://localhost:3000", "http://127.0.0.1:3000"]
 
     class Config:
