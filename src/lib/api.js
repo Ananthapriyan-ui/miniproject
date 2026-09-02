@@ -4,10 +4,15 @@
  * - Auto-refreshes expired access tokens using refresh token
  * - In-memory response caching with TTL
  * - XSS prevention: all params URL-encoded
+ *
+ * IMPORTANT: Do NOT set VITE_API_URL in Vercel environment variables.
+ * The vercel.json rewrite rule proxies all /api/* calls to Render automatically.
+ * Setting VITE_API_URL would cause direct cross-origin requests which fail due to CORS/cold-starts.
  */
 
 const BASE_URL = import.meta.env.VITE_API_URL || '/api';
 const CACHE_TTL_MS = 30_000; // 30 seconds default
+
 
 // ─── Simple in-memory cache ───────────────────────────────────────
 const cache = new Map();
