@@ -40,7 +40,7 @@ cloudvuln/
 │   ├── requirements.txt       # Pinned Python production dependencies
 │   ├── schemas.py             # Pydantic request/response validation schemas
 │   ├── security.py            # Password hashing & JWT token lifecycle handlers
-│   ├── seed_data.py           # Database seeding & initial mock vulnerability scans
+│   ├── seed_data.py           # Database schema initialization
 │   └── .env.example           # Backend production environment template
 ├── docs/
 │   ├── DEPLOYMENT_GUIDE.md    # Vercel & Render production deployment guide

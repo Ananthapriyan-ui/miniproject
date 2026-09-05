@@ -87,7 +87,7 @@ export const DashboardPage = () => {
   const [activityLogs, setActivityLogs] = useState([]);
 
   const [cveFeed, setCveFeed]   = useState([]);
-  const [cveQuery, setCveQuery] = useState('Tomcat');
+  const [cveQuery, setCveQuery] = useState('Cloud');
   const [cveLoading, setCveLoading] = useState(false);
 
   const fetchDashboardData = useCallback(async (silent = false) => {
@@ -117,7 +117,7 @@ export const DashboardPage = () => {
   const fetchCveFeed = useCallback(async (query) => {
     setCveLoading(true);
     try {
-      const data = await api.searchCve(query);
+      const data = await api.searchCve(query || 'Cloud');
       if (Array.isArray(data) && data.length > 0) setCveFeed(data);
     } catch { /* ignore */ }
     finally { setCveLoading(false); }
@@ -125,7 +125,7 @@ export const DashboardPage = () => {
 
   useEffect(() => {
     fetchDashboardData();
-    fetchCveFeed('Tomcat');
+    fetchCveFeed('Cloud');
   }, [fetchDashboardData, fetchCveFeed]);
 
   const totalVulns = riskStats?.severity_breakdown?.reduce((a, c) => a + c.value, 0) || 0;
@@ -240,27 +240,35 @@ export const DashboardPage = () => {
               Threat Trend History
             </CardTitle>
           </CardHeader>
-          <CardContent className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={riskStats?.trend_history || []} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="gCrit" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#ef4444" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="gHigh" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#f97316" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis dataKey="date" stroke="#64748b" fontSize={10} tickLine={false} />
-                <YAxis stroke="#64748b" fontSize={10} tickLine={false} />
-                <Tooltip contentStyle={ChartTooltipStyle} />
-                <Area type="monotone" dataKey="critical" stroke="#ef4444" fill="url(#gCrit)" strokeWidth={2} />
-                <Area type="monotone" dataKey="high"     stroke="#f97316" fill="url(#gHigh)" strokeWidth={2} />
-              </AreaChart>
-            </ResponsiveContainer>
+          <CardContent className="h-64 flex items-center justify-center">
+            {(!riskStats?.trend_history || riskStats.trend_history.length === 0) ? (
+              <div className="text-center p-6 space-y-2">
+                <Activity className="w-8 h-8 text-slate-600 mx-auto" />
+                <p className="text-xs text-slate-400">No trend history recorded yet.</p>
+                <p className="text-[11px] text-slate-500">Run security scans to track vulnerability trends over time.</p>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={riskStats.trend_history} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="gCrit" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor="#ef4444" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="gHigh" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor="#f97316" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                  <XAxis dataKey="date" stroke="#64748b" fontSize={10} tickLine={false} />
+                  <YAxis stroke="#64748b" fontSize={10} tickLine={false} />
+                  <Tooltip contentStyle={ChartTooltipStyle} />
+                  <Area type="monotone" dataKey="critical" stroke="#ef4444" fill="url(#gCrit)" strokeWidth={2} />
+                  <Area type="monotone" dataKey="high"     stroke="#f97316" fill="url(#gHigh)" strokeWidth={2} />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
 
@@ -358,20 +366,24 @@ export const DashboardPage = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {recentReports.map((rep) => (
-              <div key={rep.id} className="p-3 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between text-xs">
-                <div className="space-y-0.5 min-w-0 flex-1">
-                  <p className="font-mono font-bold text-slate-200 truncate">{rep.target}</p>
-                  <p className="text-[10px] font-mono text-slate-400">{rep.id} · {rep.date}</p>
+            {recentReports.length === 0 ? (
+              <p className="text-xs text-slate-500 text-center py-6">No reports generated yet.</p>
+            ) : (
+              recentReports.map((rep) => (
+                <div key={rep.id} className="p-3 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between text-xs">
+                  <div className="space-y-0.5 min-w-0 flex-1">
+                    <p className="font-mono font-bold text-slate-200 truncate">{rep.target}</p>
+                    <p className="text-[10px] font-mono text-slate-400">{rep.id} · {rep.date}</p>
+                  </div>
+                  <Button
+                    size="sm" variant="outline" icon={FileText}
+                    onClick={() => navigate(`/reports/${rep.id}`)}
+                  >
+                    View
+                  </Button>
                 </div>
-                <Button
-                  size="sm" variant="outline" icon={FileText}
-                  onClick={() => navigate(`/reports/${rep.id}`)}
-                >
-                  View
-                </Button>
-              </div>
-            ))}
+              ))
+            )}
           </CardContent>
         </Card>
       </div>

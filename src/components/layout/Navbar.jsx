@@ -19,7 +19,6 @@ export const Navbar = ({ collapsed }) => {
     '/scanner': 'Target Vulnerability Scanner',
     '/history': 'Scan History & Audit Logs',
     '/compare': 'Scan Comparison & Security Trend',
-    '/reports/DEFAULT-001': 'Detailed Scan Assessment Report',
     '/profile': 'SecOps User Profile',
     '/settings': 'Platform & Cloud Integrations',
   };
@@ -28,14 +27,8 @@ export const Navbar = ({ collapsed }) => {
     ? 'Detailed Scan Assessment Report'
     : (pathMap[location.pathname] || 'Cloud Vulnerability Scanner');
 
-  const mockNotifications = [
-    { id: 1, title: 'CRITICAL CVE-2026-1184 Detected', time: '10m ago', unread: true },
-    { id: 2, title: 'AWS Production Scan Completed', time: '1h ago', unread: true },
-    { id: 3, title: 'S3 Bucket Misconfiguration Fixed', time: '3h ago', unread: false },
-  ];
-
   const getInitials = (name) => {
-    if (!name) return 'US';
+    if (!name) return 'OP';
     return name
       .split(' ')
       .map((n) => n[0])
@@ -57,7 +50,7 @@ export const Navbar = ({ collapsed }) => {
             <span>{currentTitle}</span>
           </h1>
           <p className="text-[11px] font-mono text-slate-400">
-            System Posture: <span className="text-emerald-400 font-semibold">94/100 SECURE</span>
+            System Posture: <span className="text-emerald-400 font-semibold">ACTIVE DEFENSE</span>
           </p>
         </div>
       </div>
@@ -76,7 +69,7 @@ export const Navbar = ({ collapsed }) => {
         {/* Live Engine Status */}
         <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-xs text-slate-300">
           <Activity className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-          <span className="font-mono text-[11px]">FASTAPI AUTH: ONLINE</span>
+          <span className="font-mono text-[11px]">SECURITY ENGINE: ONLINE</span>
         </div>
 
         {/* Notification Bell Dropdown */}
@@ -89,22 +82,18 @@ export const Navbar = ({ collapsed }) => {
             className="relative p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-cyan-400 hover:border-cyan-500/40 transition-all"
           >
             <Bell className="w-4 h-4" />
-            <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(0,243,255,0.8)]" />
           </button>
 
           {showNotifications && (
             <div className="absolute right-0 mt-2 w-80 bg-[#0d1424] border border-cyan-500/30 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.6)] backdrop-blur-xl z-50 overflow-hidden animate-fade-in-up">
               <div className="p-3 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-200">Alerts & Notifications</span>
-                <Badge variant="cyan" size="sm">3 New</Badge>
+                <Badge variant="ghost" size="sm">0 New</Badge>
               </div>
-              <div className="divide-y divide-slate-800/60 max-h-64 overflow-y-auto">
-                {mockNotifications.map((n) => (
-                  <div key={n.id} className="p-3 hover:bg-slate-800/40 transition-colors text-xs space-y-1 cursor-pointer">
-                    <p className="font-medium text-slate-200">{n.title}</p>
-                    <p className="text-[10px] font-mono text-slate-400">{n.time}</p>
-                  </div>
-                ))}
+              <div className="p-6 text-center text-xs text-slate-400">
+                <ShieldCheck className="w-8 h-8 text-emerald-400 mx-auto mb-2 opacity-80" />
+                <p className="font-medium text-slate-300">All systems operational</p>
+                <p className="text-[11px] text-slate-500 mt-1">No unread security alerts at this time.</p>
               </div>
               <div className="p-2 bg-slate-950/80 border-t border-slate-800 text-center">
                 <button
@@ -114,7 +103,7 @@ export const Navbar = ({ collapsed }) => {
                   }}
                   className="text-[11px] text-cyan-400 hover:underline font-medium"
                 >
-                  View All Audit Alerts
+                  View Scan Audit History
                 </button>
               </div>
             </div>

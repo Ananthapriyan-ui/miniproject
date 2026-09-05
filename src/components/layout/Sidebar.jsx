@@ -28,7 +28,6 @@ export const Sidebar = ({ collapsed, setCollapsed }) => {
     { label: 'Cloud Scanner', path: '/scanner', icon: Radar, badge: 'LIVE' },
     { label: 'Scan History', path: '/history', icon: History },
     { label: 'Scan Comparison', path: '/compare', icon: GitCompare, badge: 'NEW' },
-    { label: 'Vulnerability Report', path: '/reports/1', icon: FileText },
     { label: 'Security Profile', path: '/profile', icon: User },
     { label: 'Settings', path: '/settings', icon: Settings },
   ];
@@ -120,7 +119,7 @@ export const Sidebar = ({ collapsed, setCollapsed }) => {
             <span>Target Shield Active</span>
           </div>
           <p className="text-[11px] text-slate-400">
-            3 Cloud accounts & 128 microservices currently protected.
+            Continuous vulnerability &amp; posture assessment ready.
           </p>
         </div>
       )}

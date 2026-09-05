@@ -43,8 +43,8 @@ export const ScannerPage = () => {
   ];
 
   const [selectedScanType, setSelectedScanType] = useState('OWASP Top 10');
-  const [targetUrl, setTargetUrl] = useState('api.production.cloudvuln.io');
-  const [cveSearchKeyword, setCveSearchKeyword] = useState('Tomcat');
+  const [targetUrl, setTargetUrl] = useState('');
+  const [cveSearchKeyword, setCveSearchKeyword] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSearchingCve, setIsSearchingCve] = useState(false);
 
@@ -355,10 +355,6 @@ export const ScannerPage = () => {
     }
   };
 
-  useEffect(() => {
-    handleAnalyzeTarget();
-  }, []);
-
   const activeOption = SCAN_OPTIONS.find((opt) => opt.id === selectedScanType) || SCAN_OPTIONS[4];
 
   return (
@@ -371,7 +367,7 @@ export const ScannerPage = () => {
             <span className="text-xs text-slate-400 font-mono">SecOps Vulnerability Suite</span>
           </div>
           <h2 className="text-xl sm:text-2xl font-black text-slate-100">
-            Security Target Assessment & Vulnerability Scanner
+            Security Target Assessment &amp; Vulnerability Scanner
           </h2>
           <p className="text-xs sm:text-sm text-slate-300 max-w-2xl">
             {activeOption.desc}
@@ -380,12 +376,12 @@ export const ScannerPage = () => {
 
         <form onSubmit={handleAnalyzeTarget} className="flex items-center gap-2 w-full md:w-auto">
           <Input
-            placeholder="Target domain or URL..."
+            placeholder="Target domain or URL (e.g. example.com)..."
             icon={Globe}
             value={targetUrl}
             onChange={(e) => setTargetUrl(e.target.value)}
             disabled={isAnalyzing}
-            className="w-full md:w-64"
+            className="w-full md:w-72"
           />
           <Button
             type="submit"
@@ -398,8 +394,6 @@ export const ScannerPage = () => {
           </Button>
         </form>
       </div>
-
-      {/* Scan Type Selector Buttons */}
       <Card className="border-cyan-500/20">
         <CardContent className="p-4">
           <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
@@ -425,6 +419,23 @@ export const ScannerPage = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Pristine Ready State when no scan has been run */}
+      {!analysisResult && !isAnalyzing && (
+        <Card className="border-cyan-500/20 bg-slate-900/40">
+          <CardContent className="p-12 text-center space-y-4 max-w-xl mx-auto">
+            <div className="w-16 h-16 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 mx-auto shadow-[0_0_25px_rgba(0,243,255,0.15)]">
+              <ShieldCheck className="w-8 h-8" />
+            </div>
+            <div className="space-y-1.5">
+              <h3 className="text-lg font-bold text-slate-100">Ready to Analyze Target</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Enter a target domain, hostname, or IP address in the search field above and click <span className="text-cyan-400 font-semibold">Run Scan</span> to execute live multi-vector vulnerability checks including OWASP Top 10, SSL/TLS, and HTTP Security Headers.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Target Security Summary Card */}
       {analysisResult && (

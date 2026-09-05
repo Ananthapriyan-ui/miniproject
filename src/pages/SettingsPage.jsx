@@ -21,9 +21,9 @@ import { useToast } from '../components/ui/Toast';
 export const SettingsPage = () => {
   const { addToast } = useToast();
 
-  const [awsRole, setAwsRole] = useState('arn:aws:iam::948210492041:role/CloudVulnScanRole');
-  const [azureSub, setAzureSub] = useState('8f2a9910-c112-4091-a110-8841b9c991a');
-  const [slackWebhook, setSlackWebhook] = useState('https://hooks.slack.com/services/T00/B00/XXXXXX');
+  const [awsRole, setAwsRole] = useState('');
+  const [azureSub, setAzureSub] = useState('');
+  const [slackWebhook, setSlackWebhook] = useState('');
 
   const [activeTab, setActiveTab] = useState('cloud');
 
@@ -86,7 +86,7 @@ export const SettingsPage = () => {
       {activeTab === 'cloud' && (
         <form onSubmit={handleSave} className="space-y-6">
           <Card>
-            <CardHeader action={<Badge variant="success" size="sm" dot>CONNECTED</Badge>}>
+            <CardHeader action={<Badge variant={awsRole ? "success" : "ghost"} size="sm" dot={!!awsRole}>{awsRole ? "CONFIGURED" : "NOT CONFIGURED"}</Badge>}>
               <CardTitle icon={Cloud} subtitle="IAM Cross-Account Trust Policies">
                 Amazon Web Services (AWS) Account Integration
               </CardTitle>
@@ -94,6 +94,7 @@ export const SettingsPage = () => {
             <CardContent className="space-y-4">
               <Input
                 label="AWS Cross-Account IAM Role ARN"
+                placeholder="arn:aws:iam::123456789012:role/CloudVulnScanRole"
                 value={awsRole}
                 onChange={(e) => setAwsRole(e.target.value)}
                 helperText="CloudVuln assumes this role with SecurityAudit read-only permissions."
@@ -102,7 +103,7 @@ export const SettingsPage = () => {
           </Card>
 
           <Card>
-            <CardHeader action={<Badge variant="success" size="sm" dot>CONNECTED</Badge>}>
+            <CardHeader action={<Badge variant={azureSub ? "success" : "ghost"} size="sm" dot={!!azureSub}>{azureSub ? "CONFIGURED" : "NOT CONFIGURED"}</Badge>}>
               <CardTitle icon={Cloud} subtitle="Service Principal & Management Groups">
                 Microsoft Azure Subscription
               </CardTitle>
@@ -110,6 +111,7 @@ export const SettingsPage = () => {
             <CardContent className="space-y-4">
               <Input
                 label="Azure Subscription ID"
+                placeholder="e.g. 8f2a9910-c112-4091-a110-8841b9c991a"
                 value={azureSub}
                 onChange={(e) => setAzureSub(e.target.value)}
               />
@@ -128,7 +130,7 @@ export const SettingsPage = () => {
       {activeTab === 'notifications' && (
         <form onSubmit={handleSave} className="space-y-6">
           <Card>
-            <CardHeader>
+            <CardHeader action={<Badge variant={slackWebhook ? "success" : "ghost"} size="sm" dot={!!slackWebhook}>{slackWebhook ? "CONFIGURED" : "NOT CONFIGURED"}</Badge>}>
               <CardTitle icon={Bell} subtitle="Instant critical CVE alert routing">
                 Slack & Webhook Integrations
               </CardTitle>
@@ -136,6 +138,7 @@ export const SettingsPage = () => {
             <CardContent className="space-y-4">
               <Input
                 label="Slack Incoming Webhook URL"
+                placeholder="https://hooks.slack.com/services/T00/B00/XXXXXX"
                 value={slackWebhook}
                 onChange={(e) => setSlackWebhook(e.target.value)}
                 helperText="Critical and High severity findings will be dispatched to this channel."

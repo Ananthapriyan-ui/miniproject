@@ -19,22 +19,21 @@ import { Input } from '../components/ui/Input';
 import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
 import { useToast } from '../components/ui/Toast';
+import { useAuth } from '../context/AuthContext';
 
 export const ProfilePage = () => {
   const { addToast } = useToast();
+  const { user } = useAuth();
 
-  const [name, setName] = useState('Ananthapriyan');
-  const [email, setEmail] = useState('secops.lead@cloudvuln.io');
-  const [role] = useState('Lead Security Architect & SecOps Admin');
+  const [name, setName] = useState(user?.full_name || 'SecOps Operator');
+  const [email, setEmail] = useState(user?.email || 'operator@cloudvuln.io');
+  const [role] = useState(user?.role || 'Lead Security Architect & SecOps Admin');
 
   const [copiedKey, setCopiedKey] = useState(null);
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
   const [newKeyName, setNewKeyName] = useState('');
 
-  const [apiKeys, setApiKeys] = useState([
-    { id: 1, name: 'CLI Automation Token', key: 'cv_live_9941a84f32...884d', created: '2026-06-12', lastUsed: '10m ago' },
-    { id: 2, name: 'GitHub Actions CI/CD Pipeline', key: 'cv_live_1092b77c11...991a', created: '2026-07-01', lastUsed: '2h ago' }
-  ]);
+  const [apiKeys, setApiKeys] = useState([]);
 
   const handleCopyKey = (keyText, id) => {
     navigator.clipboard.writeText(keyText);
@@ -83,7 +82,7 @@ export const ProfilePage = () => {
           <CardContent className="p-6 text-center space-y-4">
             <div className="relative inline-block">
               <div className="w-24 h-24 rounded-full bg-slate-900 border-2 border-cyan-400/60 flex items-center justify-center text-cyan-400 font-bold text-3xl mx-auto shadow-[0_0_20px_rgba(0,243,255,0.3)]">
-                AM
+                {(name || 'OP').split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)}
               </div>
               <span className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-emerald-500 border-2 border-[#090d16] flex items-center justify-center text-black font-bold text-[10px]">
                 ✓
@@ -97,7 +96,7 @@ export const ProfilePage = () => {
 
             <div className="flex items-center justify-center gap-2 pt-2">
               <Badge variant="cyan" dot>MFA ENABLED</Badge>
-              <Badge variant="purple">SECOPS-ADMIN</Badge>
+              <Badge variant="purple">SECOPS-OPERATOR</Badge>
             </div>
 
             <div className="pt-4 border-t border-slate-800 space-y-3 text-left">
@@ -133,36 +132,43 @@ export const ProfilePage = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {apiKeys.map((item) => (
-                <div
-                  key={item.id}
-                  className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs"
-                >
-                  <div className="space-y-1">
-                    <p className="font-semibold text-slate-200">{item.name}</p>
-                    <p className="font-mono text-cyan-400 text-[11px]">{item.key}</p>
-                    <p className="text-[10px] text-slate-500 font-mono">
-                      Created: {item.created} • Last used: {item.lastUsed}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 self-end sm:self-center">
-                    <button
-                      onClick={() => handleCopyKey(item.key, item.id)}
-                      className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-cyan-400 transition-colors"
-                      title="Copy Key"
-                    >
-                      {copiedKey === item.id ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                    </button>
-                    <button
-                      onClick={() => handleDeleteKey(item.id)}
-                      className="p-2 rounded-lg bg-slate-800 hover:bg-rose-900/50 text-slate-400 hover:text-rose-400 transition-colors"
-                      title="Revoke Key"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+              {apiKeys.length === 0 ? (
+                <div className="p-6 text-center text-xs text-slate-400 border border-dashed border-slate-800 rounded-xl space-y-1">
+                  <p className="font-semibold text-slate-300">No active API tokens</p>
+                  <p className="text-[11px] text-slate-500">Generate an API key for headless CLI scanning and CI/CD security pipelines.</p>
                 </div>
-              ))}
+              ) : (
+                apiKeys.map((item) => (
+                  <div
+                    key={item.id}
+                    className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs"
+                  >
+                    <div className="space-y-1">
+                      <p className="font-semibold text-slate-200">{item.name}</p>
+                      <p className="font-mono text-cyan-400 text-[11px]">{item.key}</p>
+                      <p className="text-[10px] text-slate-500 font-mono">
+                        Created: {item.created} • Last used: {item.lastUsed}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 self-end sm:self-center">
+                      <button
+                        onClick={() => handleCopyKey(item.key, item.id)}
+                        className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-cyan-400 transition-colors"
+                        title="Copy Key"
+                      >
+                        {copiedKey === item.id ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteKey(item.id)}
+                        className="p-2 rounded-lg bg-slate-800 hover:bg-rose-900/50 text-slate-400 hover:text-rose-400 transition-colors"
+                        title="Revoke Key"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
             </CardContent>
           </Card>
 
