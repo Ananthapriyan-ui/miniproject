@@ -80,7 +80,37 @@ Click **Save Changes**. Render will trigger automatic deployment.
 
 ---
 
-## 🔄 Part 3: Automated Database Backup Setup
+## 🔐 Part 3: Google OAuth & Supabase Configuration
+
+To enable one-click Google Sign-In and Registration in CloudVuln:
+
+### Step 1: Create OAuth Credentials in Google Cloud Console
+1. Open the [Google Cloud Console](https://console.cloud.google.com/).
+2. Navigate to **APIs & Services** > **Credentials**.
+3. Click **Create Credentials** > **OAuth client ID**.
+4. Select **Web application** as the application type.
+5. In **Authorized redirect URIs**, add your Supabase Auth callback URI:
+   ```
+   https://<your-supabase-project-ref>.supabase.co/auth/v1/callback
+   ```
+6. Click **Create** and copy your **Client ID** and **Client Secret**.
+
+### Step 2: Configure Google Provider in Supabase
+1. Open your [Supabase Dashboard](https://supabase.com/dashboard).
+2. Go to **Authentication** > **Providers** > **Google**.
+3. Toggle **Enable Google provider** to ON.
+4. Paste the **Client ID** and **Client Secret** obtained from Google Cloud Console.
+5. Click **Save**.
+
+### Step 3: Configure Redirect & Site URLs
+1. In Supabase Dashboard, navigate to **Authentication** > **URL Configuration**.
+2. Set **Site URL** to your deployed frontend domain (e.g., `https://cloudvuln.vercel.app` or `http://localhost:3000`).
+3. Add any preview/staging URLs to **Redirect URLs** (e.g., `http://localhost:3000/*`, `https://*.vercel.app/*`).
+4. Click **Save**.
+
+---
+
+## 🔄 Part 4: Automated Database Backup Setup
 
 To automate daily backups on Render:
 
@@ -97,6 +127,8 @@ To automate daily backups on Render:
 
 - [ ] Frontend successfully deployed on Vercel without build errors.
 - [ ] Backend API responding to health check: `GET https://cloudvuln-api.onrender.com/api/health`.
-- [ ] Login and Registration functional with JWT tokens persisted.
+- [ ] Supabase Authentication configured with Google OAuth provider enabled.
+- [ ] Login and Registration functional via both Google OAuth and Email/Password.
 - [ ] New scan trigger creates vulnerability records in persistent SQLite DB `/var/data/cloudvuln.db`.
 - [ ] PDF and HTML executive report downloads function cleanly.
+

@@ -4,6 +4,7 @@ import { Shield, Mail, Key, ArrowRight, ShieldCheck, Cpu, Lock } from 'lucide-re
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Card, CardContent } from '../components/ui/Card';
+import { GoogleIcon } from '../components/ui/GoogleIcon';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/ui/Toast';
 
@@ -14,7 +15,7 @@ function validateEmail(email) {
 export const LoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, demoLogin } = useAuth();
+  const { login, loginWithGoogle, demoLogin } = useAuth();
   const { addToast } = useToast();
 
   const from = location.state?.from?.pathname || '/';
@@ -22,6 +23,7 @@ export const LoginPage = () => {
   const [form, setForm] = useState({ email: '', password: '' });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [serverError, setServerError] = useState('');
 
   const validate = useCallback(() => {
@@ -60,6 +62,18 @@ export const LoginPage = () => {
       setServerError(result.error);
       addToast(result.error, 'error', { title: 'Login Failed' });
     }
+  };
+
+  const handleGoogleLogin = async () => {
+    setIsGoogleLoading(true);
+    setServerError('');
+    const result = await loginWithGoogle();
+    if (!result.success) {
+      setIsGoogleLoading(false);
+      setServerError(result.error);
+      addToast(result.error, 'error', { title: 'Google Sign-In Failed' });
+    }
+    // Browser redirects to Google OAuth consent
   };
 
   const handleDemoLogin = () => {
@@ -102,7 +116,7 @@ export const LoginPage = () => {
                 <Lock className="w-3.5 h-3.5 text-cyan-400" /> SecOps Authentication
               </span>
               <span className="text-[11px] font-mono text-emerald-400 flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5" /> JWT Secured
+                <ShieldCheck className="w-3.5 h-3.5" /> Supabase OAuth
               </span>
             </div>
 
@@ -115,6 +129,29 @@ export const LoginPage = () => {
                 <span>⚠️</span> {serverError}
               </div>
             )}
+
+            {/* Google OAuth Login Button */}
+            <button
+              id="google-login"
+              type="button"
+              onClick={handleGoogleLogin}
+              disabled={isLoading || isGoogleLoading}
+              className="w-full py-2.5 px-4 bg-[#0f172a] hover:bg-[#1e293b] border border-slate-700 hover:border-cyan-500/60 rounded-xl text-slate-200 font-semibold text-sm flex items-center justify-center gap-3 transition-all duration-200 shadow-[0_2px_10px_rgba(0,0,0,0.3)] hover:shadow-[0_0_20px_rgba(0,243,255,0.15)] disabled:opacity-50 disabled:cursor-not-allowed group cursor-pointer"
+            >
+              {isGoogleLoading ? (
+                <div className="w-5 h-5 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <GoogleIcon className="w-5 h-5 transition-transform duration-200 group-hover:scale-110" />
+              )}
+              <span>{isGoogleLoading ? 'Connecting to Google…' : 'Continue with Google'}</span>
+            </button>
+
+            <div className="relative flex items-center justify-center">
+              <div className="border-t border-slate-800 w-full" />
+              <span className="bg-[#0f172a] px-3 text-[10px] uppercase font-mono text-slate-500 relative z-10 whitespace-nowrap">
+                OR SIGN IN WITH EMAIL
+              </span>
+            </div>
 
             <form onSubmit={handleSubmit} className="space-y-4" noValidate>
               <Input
@@ -151,14 +188,14 @@ export const LoginPage = () => {
                 isLoading={isLoading}
                 iconRight={ArrowRight}
               >
-                {isLoading ? 'Authenticating…' : 'Sign In'}
+                {isLoading ? 'Authenticating…' : 'Sign In with Email'}
               </Button>
             </form>
 
             <div className="relative flex items-center justify-center">
               <div className="border-t border-slate-800 w-full" />
               <span className="bg-[#0f172a] px-3 text-[10px] uppercase font-mono text-slate-500 relative z-10 whitespace-nowrap">
-                OR
+                TEST ACCESS
               </span>
             </div>
 
@@ -190,3 +227,4 @@ export const LoginPage = () => {
     </div>
   );
 };
+

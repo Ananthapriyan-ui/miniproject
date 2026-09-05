@@ -119,8 +119,12 @@ export const Navbar = ({ collapsed }) => {
             }}
             className="flex items-center gap-2 p-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-cyan-500/40 transition-all text-xs"
           >
-            <div className="w-7 h-7 rounded-lg bg-cyan-500/10 border border-cyan-400/40 flex items-center justify-center text-cyan-400 font-bold">
-              {getInitials(user?.full_name)}
+            <div className="w-7 h-7 rounded-lg bg-cyan-500/10 border border-cyan-400/40 flex items-center justify-center text-cyan-400 font-bold overflow-hidden">
+              {user?.avatar_url ? (
+                <img src={user.avatar_url} alt={user?.full_name || 'User'} className="w-full h-full object-cover" />
+              ) : (
+                getInitials(user?.full_name)
+              )}
             </div>
             <span className="hidden lg:inline text-slate-200 font-medium">{user?.full_name || 'User'}</span>
             <ChevronDown className="w-3.5 h-3.5 text-slate-400" />

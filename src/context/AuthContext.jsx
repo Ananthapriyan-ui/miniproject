@@ -26,11 +26,17 @@ function buildUser(supabaseUser, profile) {
     full_name:
       profile?.full_name ||
       supabaseUser.user_metadata?.full_name ||
-      supabaseUser.email,
+      supabaseUser.user_metadata?.name ||
+      supabaseUser.email?.split('@')[0] ||
+      'SecOps Operator',
     role:
       profile?.role ||
       supabaseUser.user_metadata?.role ||
       'SecOps Lead',
+    avatar_url:
+      supabaseUser.user_metadata?.avatar_url ||
+      supabaseUser.user_metadata?.picture ||
+      null,
     is_active: profile?.is_active ?? true,
     created_at: profile?.created_at || supabaseUser.created_at,
   };
@@ -48,20 +54,54 @@ export const AuthProvider = ({ children }) => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!mounted) return;
       if (session?.user) {
-        const profile = await fetchProfile(session.user.id);
+        let profile = await fetchProfile(session.user.id);
+        if (!profile) {
+          try {
+            const defaultName =
+              session.user.user_metadata?.full_name ||
+              session.user.user_metadata?.name ||
+              session.user.email?.split('@')[0] ||
+              'SecOps Operator';
+            await supabase.from('profiles').upsert({
+              id: session.user.id,
+              full_name: defaultName,
+              role: 'SecOps Lead',
+            });
+            profile = await fetchProfile(session.user.id);
+          } catch (e) {
+            console.warn('Could not auto-create profile:', e);
+          }
+        }
         setUser(buildUser(session.user, profile));
       }
       setLoading(false);
     });
 
-    // Real-time auth state listener (sign-in, sign-out, token-refresh)
+    // Real-time auth state listener (sign-in, sign-out, token-refresh, OAuth callback)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
 
       if (session?.user) {
-        const profile = await fetchProfile(session.user.id);
+        let profile = await fetchProfile(session.user.id);
+        if (!profile) {
+          try {
+            const defaultName =
+              session.user.user_metadata?.full_name ||
+              session.user.user_metadata?.name ||
+              session.user.email?.split('@')[0] ||
+              'SecOps Operator';
+            await supabase.from('profiles').upsert({
+              id: session.user.id,
+              full_name: defaultName,
+              role: 'SecOps Lead',
+            });
+            profile = await fetchProfile(session.user.id);
+          } catch (e) {
+            console.warn('Could not auto-create profile:', e);
+          }
+        }
         setUser(buildUser(session.user, profile));
       } else {
         setUser(null);
@@ -77,7 +117,7 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  // ─── Login ────────────────────────────────────────────────────────
+  // ─── Email/Password Login ─────────────────────────────────────────
   const login = useCallback(async (email, password) => {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -90,6 +130,27 @@ export const AuthProvider = ({ children }) => {
     const appUser = buildUser(data.user, profile);
     setUser(appUser);
     return { success: true, user: appUser };
+  }, []);
+
+  // ─── Google OAuth Login ───────────────────────────────────────────
+  const loginWithGoogle = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
+      });
+
+      if (error) return { success: false, error: error.message };
+      return { success: true, data };
+    } catch (err) {
+      return { success: false, error: err.message || 'Failed to initiate Google sign-in' };
+    }
   }, []);
 
   // ─── Register ─────────────────────────────────────────────────────
@@ -156,6 +217,7 @@ export const AuthProvider = ({ children }) => {
         isAuthenticated: !!user,
         loading,
         login,
+        loginWithGoogle,
         register,
         demoLogin,
         logout,
@@ -171,3 +233,4 @@ export const useAuth = () => {
   if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };
+

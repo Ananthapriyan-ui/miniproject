@@ -81,8 +81,12 @@ export const ProfilePage = () => {
         <Card className="lg:col-span-1 border-cyan-500/20">
           <CardContent className="p-6 text-center space-y-4">
             <div className="relative inline-block">
-              <div className="w-24 h-24 rounded-full bg-slate-900 border-2 border-cyan-400/60 flex items-center justify-center text-cyan-400 font-bold text-3xl mx-auto shadow-[0_0_20px_rgba(0,243,255,0.3)]">
-                {(name || 'OP').split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)}
+              <div className="w-24 h-24 rounded-full bg-slate-900 border-2 border-cyan-400/60 flex items-center justify-center text-cyan-400 font-bold text-3xl mx-auto shadow-[0_0_20px_rgba(0,243,255,0.3)] overflow-hidden">
+                {user?.avatar_url ? (
+                  <img src={user.avatar_url} alt={name} className="w-full h-full object-cover" />
+                ) : (
+                  (name || 'OP').split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)
+                )}
               </div>
               <span className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-emerald-500 border-2 border-[#090d16] flex items-center justify-center text-black font-bold text-[10px]">
                 ✓

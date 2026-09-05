@@ -5,6 +5,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { Card, CardContent } from '../components/ui/Card';
+import { GoogleIcon } from '../components/ui/GoogleIcon';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/ui/Toast';
 
@@ -56,7 +57,7 @@ function PasswordStrength({ password }) {
 
 export const RegisterPage = () => {
   const navigate = useNavigate();
-  const { register } = useAuth();
+  const { register, loginWithGoogle } = useAuth();
   const { addToast } = useToast();
 
   const [form, setForm] = useState({
@@ -68,6 +69,7 @@ export const RegisterPage = () => {
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [serverError, setServerError] = useState('');
 
   const handleChange = (field) => (e) => {
@@ -117,6 +119,17 @@ export const RegisterPage = () => {
     }
   };
 
+  const handleGoogleSignUp = async () => {
+    setIsGoogleLoading(true);
+    setServerError('');
+    const result = await loginWithGoogle();
+    if (!result.success) {
+      setIsGoogleLoading(false);
+      setServerError(result.error);
+      addToast(result.error, 'error', { title: 'Google Sign-Up Failed' });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#090d16] text-slate-100 flex items-center justify-center p-4 cyber-bg-grid relative overflow-hidden">
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-cyan-500/8 rounded-full blur-3xl pointer-events-none" />
@@ -144,7 +157,7 @@ export const RegisterPage = () => {
                 <UserPlus className="w-3.5 h-3.5 text-cyan-400" /> Create Account
               </span>
               <span className="text-[11px] font-mono text-emerald-400 flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5" /> Secure Registration
+                <ShieldCheck className="w-3.5 h-3.5" /> Supabase OAuth
               </span>
             </div>
 
@@ -154,12 +167,35 @@ export const RegisterPage = () => {
               </div>
             )}
 
+            {/* Google OAuth Quick Register Button */}
+            <button
+              id="google-signup"
+              type="button"
+              onClick={handleGoogleSignUp}
+              disabled={isLoading || isGoogleLoading}
+              className="w-full py-2.5 px-4 bg-[#0f172a] hover:bg-[#1e293b] border border-slate-700 hover:border-cyan-500/60 rounded-xl text-slate-200 font-semibold text-sm flex items-center justify-center gap-3 transition-all duration-200 shadow-[0_2px_10px_rgba(0,0,0,0.3)] hover:shadow-[0_0_20px_rgba(0,243,255,0.15)] disabled:opacity-50 disabled:cursor-not-allowed group cursor-pointer"
+            >
+              {isGoogleLoading ? (
+                <div className="w-5 h-5 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <GoogleIcon className="w-5 h-5 transition-transform duration-200 group-hover:scale-110" />
+              )}
+              <span>{isGoogleLoading ? 'Connecting to Google…' : 'Sign up with Google'}</span>
+            </button>
+
+            <div className="relative flex items-center justify-center">
+              <div className="border-t border-slate-800 w-full" />
+              <span className="bg-[#0f172a] px-3 text-[10px] uppercase font-mono text-slate-500 relative z-10 whitespace-nowrap">
+                OR REGISTER WITH EMAIL
+              </span>
+            </div>
+
             <form onSubmit={handleSubmit} className="space-y-3.5" noValidate>
               <Input
                 id="reg-name"
                 label="Full Name"
                 type="text"
-                placeholder="ANANTHAPRIYAN"
+                placeholder="SecOps Operator"
                 icon={User}
                 value={form.fullName}
                 onChange={handleChange('fullName')}
@@ -172,7 +208,7 @@ export const RegisterPage = () => {
                 id="reg-email"
                 label="Email Address"
                 type="email"
-                placeholder="sample@gamil.com"
+                placeholder="operator@cloudvuln.io"
                 icon={Mail}
                 value={form.email}
                 onChange={handleChange('email')}
@@ -235,7 +271,7 @@ export const RegisterPage = () => {
                 isLoading={isLoading}
                 icon={UserPlus}
               >
-                {isLoading ? 'Creating Account…' : 'Create Account'}
+                {isLoading ? 'Creating Account…' : 'Create Account with Email'}
               </Button>
             </form>
 
@@ -251,3 +287,4 @@ export const RegisterPage = () => {
     </div>
   );
 };
+
