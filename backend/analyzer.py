@@ -501,7 +501,7 @@ def analyze_owasp_top10(target_url: str) -> Dict[str, Any]:
             "status": "Passed",
             "severity": "Passed",
             "description": "Server supplies a Content-Security-Policy header to mitigate script injection.",
-            "evidence": f"CSP Value: {resp_headers.get('content-security-policy')[:80]}...",
+            "evidence": f"CSP Value: {(resp_headers.get('content-security-policy') or '')[:80]}...",
             "affected_component": "HTTP Response Headers",
             "impact": "Helps restrict untrusted script execution in client browsers.",
             "recommendation": "Periodically review CSP directives to prevent overly permissive unsafe-inline flags.",

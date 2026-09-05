@@ -18,6 +18,7 @@ export const Navbar = ({ collapsed }) => {
     '/': 'Dashboard Overview',
     '/scanner': 'Target Vulnerability Scanner',
     '/history': 'Scan History & Audit Logs',
+    '/compare': 'Scan Comparison & Security Trend',
     '/reports/DEFAULT-001': 'Detailed Scan Assessment Report',
     '/profile': 'SecOps User Profile',
     '/settings': 'Platform & Cloud Integrations',

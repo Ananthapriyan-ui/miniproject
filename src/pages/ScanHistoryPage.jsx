@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   History, Search, FileText, Play, RotateCw, Trash2, Cloud,
-  Download, RefreshCw
+  Download, RefreshCw, GitCompare
 } from 'lucide-react';
 import { Card, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -12,35 +12,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '.
 import { Badge } from '../components/ui/Badge';
 import { SkeletonTable } from '../components/ui/Loader';
 import { useToast } from '../components/ui/Toast';
-import api from '../lib/api';
-
-const FALLBACK_SCANS = [
-  {
-    id: 1, scan_ref: 'SCAN-2026-9810', target: 'prod-k8s-api-gateway', provider: 'AWS US-East-1',
-    scan_type: 'Cloud Misconfig', status: 'critical', critical_count: 1, high_count: 2,
-    risk_score: 9.8, duration: '4m 12s', created_at: '2026-07-27T18:20:00Z'
-  },
-  {
-    id: 2, scan_ref: 'SCAN-2026-9788', target: 'finance-db-cluster-primary', provider: 'Azure East',
-    scan_type: 'Port & Service Probe', status: 'high', critical_count: 0, high_count: 3,
-    risk_score: 7.4, duration: '2m 45s', created_at: '2026-07-26T14:05:00Z'
-  },
-  {
-    id: 3, scan_ref: 'SCAN-2026-9650', target: 'analytics-storage-bucket-public', provider: 'GCP Central',
-    scan_type: 'Public Bucket Audit', status: 'critical', critical_count: 2, high_count: 4,
-    risk_score: 9.1, duration: '1m 50s', created_at: '2026-07-25T09:30:00Z'
-  },
-  {
-    id: 4, scan_ref: 'SCAN-2026-9511', target: 'auth-service-auth0-proxy', provider: 'AWS EU-West-1',
-    scan_type: 'Container SAST', status: 'high', critical_count: 1, high_count: 3,
-    risk_score: 5.2, duration: '3m 10s', created_at: '2026-07-25T11:15:00Z'
-  },
-  {
-    id: 5, scan_ref: 'SCAN-2026-9400', target: 'staging-k8s-cluster', provider: 'AWS US-West-2',
-    scan_type: 'K8s Cluster Audit', status: 'passed', critical_count: 0, high_count: 0,
-    risk_score: 1.2, duration: '5m 02s', created_at: '2026-07-24T11:15:00Z'
-  }
-];
+import api, { formatScanDate } from '../lib/api';
 
 export const ScanHistoryPage = () => {
   const navigate = useNavigate();
@@ -60,9 +32,10 @@ export const ScanHistoryPage = () => {
         search: searchQuery,
         status_filter: statusFilter !== 'all' ? statusFilter : undefined
       });
-      setScans(data);
-    } catch {
-      setScans(FALLBACK_SCANS);
+      setScans(data || []);
+    } catch (err) {
+      console.error('Failed to load scan history:', err);
+      setScans([]);
     } finally {
       setLoading(false);
     }
@@ -118,6 +91,9 @@ export const ScanHistoryPage = () => {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <Button variant="outline" icon={GitCompare} onClick={() => navigate('/compare')}>
+            Compare Scans
+          </Button>
           <Button variant="outline" icon={RefreshCw} onClick={fetchScans}>
             Refresh
           </Button>
@@ -232,7 +208,7 @@ export const ScanHistoryPage = () => {
                         </span>
                       </TableCell>
                       <TableCell className="text-xs text-slate-400 font-mono">
-                        {item.created_at ? item.created_at.substring(0, 10) : '2026-07-27'}
+                        {formatScanDate(item.created_at)}
                       </TableCell>
                       <TableCell className="text-right space-x-1.5">
                         <Button
@@ -242,6 +218,14 @@ export const ScanHistoryPage = () => {
                           onClick={() => navigate(`/reports/${item.scan_ref}`)}
                         >
                           Report
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          icon={GitCompare}
+                          onClick={() => navigate(`/compare?latest=${encodeURIComponent(item.scan_ref)}`)}
+                        >
+                          Compare
                         </Button>
                         <Button
                           size="sm"

@@ -13,6 +13,7 @@ const DashboardPage = lazy(() => import('./pages/DashboardPage').then(m => ({ de
 const ScannerPage = lazy(() => import('./pages/ScannerPage').then(m => ({ default: m.ScannerPage })));
 const ReportPage = lazy(() => import('./pages/ReportPage').then(m => ({ default: m.ReportPage })));
 const ScanHistoryPage = lazy(() => import('./pages/ScanHistoryPage').then(m => ({ default: m.ScanHistoryPage })));
+const ScanComparisonPage = lazy(() => import('./pages/ScanComparisonPage').then(m => ({ default: m.ScanComparisonPage })));
 const ProfilePage = lazy(() => import('./pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
@@ -41,6 +42,7 @@ export function App() {
                 <Route path="scanner" element={<ScannerPage />} />
                 <Route path="reports/:id" element={<ReportPage />} />
                 <Route path="history" element={<ScanHistoryPage />} />
+                <Route path="compare" element={<ScanComparisonPage />} />
                 <Route path="profile" element={<ProfilePage />} />
                 <Route path="settings" element={<SettingsPage />} />
               </Route>

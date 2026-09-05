@@ -1,101 +1,151 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import api, { setTokens, clearTokens, getToken, getRefreshToken } from '../lib/api';
+import { supabase } from '../lib/supabase';
 
 const AuthContext = createContext(null);
+
+// ─── Helper: fetch or create the user's profile row ───────────────
+async function fetchProfile(userId) {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('full_name, role, is_active, created_at')
+    .eq('id', userId)
+    .single();
+
+  if (error && error.code !== 'PGRST116') {
+    // PGRST116 = row not found (profile not yet created by trigger)
+    console.error('Profile fetch error:', error.message);
+  }
+  return data || null;
+}
+
+// ─── Normalise Supabase session → app user object ─────────────────
+function buildUser(supabaseUser, profile) {
+  return {
+    id: supabaseUser.id,
+    email: supabaseUser.email,
+    full_name:
+      profile?.full_name ||
+      supabaseUser.user_metadata?.full_name ||
+      supabaseUser.email,
+    role:
+      profile?.role ||
+      supabaseUser.user_metadata?.role ||
+      'SecOps Lead',
+    is_active: profile?.is_active ?? true,
+    created_at: profile?.created_at || supabaseUser.created_at,
+  };
+}
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Validate stored token on mount
+  // ─── Restore session on mount & listen for auth changes ───────────
   useEffect(() => {
-    const restore = async () => {
-      const token = getToken();
-      if (!token) {
-        setLoading(false);
-        return;
+    let mounted = true;
+
+    // Initial session check
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!mounted) return;
+      if (session?.user) {
+        const profile = await fetchProfile(session.user.id);
+        setUser(buildUser(session.user, profile));
+      }
+      setLoading(false);
+    });
+
+    // Real-time auth state listener (sign-in, sign-out, token-refresh)
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return;
+
+      if (session?.user) {
+        const profile = await fetchProfile(session.user.id);
+        setUser(buildUser(session.user, profile));
+      } else {
+        setUser(null);
       }
 
-      // Demo token bypass
-      if (token === 'demo_token_secops_lead') {
-        setUser({
-          id: 99,
-          email: 'secops.lead@cloudvuln.io',
-          full_name: 'Ananthapriyan M',
-          role: 'SecOps Lead',
-          is_active: true,
-          created_at: new Date().toISOString(),
-        });
-        setLoading(false);
-        return;
-      }
+      // Only clear loading if it was still true (avoids a double-set on mount)
+      setLoading(false);
+    });
 
-      try {
-        const userData = await api.me();
-        setUser(userData);
-      } catch {
-        // Token invalid/expired — try refresh
-        if (getRefreshToken()) {
-          try {
-            const refreshed = await api.refresh();
-            setTokens(refreshed.access_token, refreshed.refresh_token);
-            setUser(refreshed.user);
-          } catch {
-            clearTokens();
-          }
-        } else {
-          clearTokens();
-        }
-      } finally {
-        setLoading(false);
-      }
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
     };
-    restore();
   }, []);
 
+  // ─── Login ────────────────────────────────────────────────────────
   const login = useCallback(async (email, password) => {
-    try {
-      const data = await api.login(email, password);
-      setTokens(data.access_token, data.refresh_token);
-      setUser(data.user);
-      return { success: true, user: data.user };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) return { success: false, error: error.message };
+
+    const profile = await fetchProfile(data.user.id);
+    const appUser = buildUser(data.user, profile);
+    setUser(appUser);
+    return { success: true, user: appUser };
   }, []);
 
+  // ─── Register ─────────────────────────────────────────────────────
   const register = useCallback(async (email, password, fullName, role = 'SecOps Lead') => {
-    try {
-      const data = await api.register(email, password, fullName, role);
-      setTokens(data.access_token, data.refresh_token);
-      setUser(data.user);
-      return { success: true, user: data.user };
-    } catch (error) {
-      return { success: false, error: error.message };
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { full_name: fullName, role }, // stored in raw_user_meta_data
+      },
+    });
+
+    if (error) return { success: false, error: error.message };
+
+    // If email confirmation is disabled in Supabase, user is auto-logged in
+    if (data.user && data.session) {
+      // Upsert profile manually in case the DB trigger hasn't fired yet
+      await supabase.from('profiles').upsert({
+        id: data.user.id,
+        full_name: fullName,
+        role,
+      });
+
+      const appUser = buildUser(data.user, { full_name: fullName, role });
+      setUser(appUser);
+      return { success: true, user: appUser };
     }
+
+    // Email confirmation required — user not yet signed in
+    return {
+      success: false,
+      error: 'Please check your email to confirm your account before signing in.',
+    };
   }, []);
 
+  // ─── Demo login (local mock — no Supabase call) ───────────────────
   const demoLogin = useCallback(() => {
     const demoUser = {
-      id: 99,
+      id: 'demo-99',
       email: 'secops.lead@cloudvuln.io',
       full_name: 'Alex Mercer',
       role: 'SecOps Lead',
       is_active: true,
       created_at: new Date().toISOString(),
+      isDemo: true,
     };
-    setTokens('demo_token_secops_lead', null);
     setUser(demoUser);
+    // Stash a demo flag so api.js can skip Supabase token retrieval
+    localStorage.setItem('cloudvuln_demo', '1');
     return { success: true, user: demoUser };
   }, []);
 
+  // ─── Logout ───────────────────────────────────────────────────────
   const logout = useCallback(async () => {
-    try {
-      if (getToken() && getToken() !== 'demo_token_secops_lead') {
-        await api.logout();
-      }
-    } catch { /* ignore */ }
-    clearTokens();
+    localStorage.removeItem('cloudvuln_demo');
+    await supabase.auth.signOut();
     setUser(null);
   }, []);
 
@@ -103,7 +153,6 @@ export const AuthProvider = ({ children }) => {
     <AuthContext.Provider
       value={{
         user,
-        token: getToken(),
         isAuthenticated: !!user,
         loading,
         login,

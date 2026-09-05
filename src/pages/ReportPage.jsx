@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   FileText,
@@ -23,7 +23,7 @@ import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
 import { useToast } from '../components/ui/Toast';
 import { PageSkeleton } from '../components/ui/Loader';
-import api from '../lib/api';
+import api, { formatScanDate } from '../lib/api';
 
 export const ReportPage = () => {
   const { id } = useParams();
@@ -55,11 +55,12 @@ export const ReportPage = () => {
     fetchReport();
   }, [id]);
 
+  const rawExecutedAt = reportData?.executed_at || reportData?.created_at;
   const reportMeta = {
     scanId: reportData?.scan_ref || id || 'Unknown',
     target: reportData?.target || 'Unknown Target',
     cloudProvider: reportData?.cloud_provider || 'AWS US-East-1',
-    executedAt: reportData?.executed_at || 'Recently',
+    executedAt: rawExecutedAt ? formatScanDate(rawExecutedAt) : 'Not Available',
     duration: reportData?.duration || '1m 30s',
     criticalCount: reportData?.critical_count || 0,
     highCount: reportData?.high_count || 0,

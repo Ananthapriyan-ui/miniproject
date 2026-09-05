@@ -16,6 +16,7 @@ import schemas
 import security
 import database
 import analyzer
+import scan_comparator
 import config
 from seed_data import seed_database
 
@@ -363,23 +364,36 @@ def get_dashboard_summary(db: Session = Depends(database.get_db)):
         func.coalesce(func.sum(models.Scan.high_count), 0).label("high"),
         func.coalesce(func.sum(models.Scan.medium_count), 0).label("medium"),
         func.coalesce(func.sum(models.Scan.low_count), 0).label("low"),
+        func.count(func.distinct(models.Scan.target)).label("monitored_assets"),
     ).first()
 
+    total_scans = result.total_scans if result else 0
+    monitored_assets = result.monitored_assets if (result and result.monitored_assets) else (1 if total_scans > 0 else 0)
+
     active_scans = db.query(models.Scan).filter(
-        models.Scan.status.in_(["running", "critical"])
+        models.Scan.status == "running"
     ).count()
 
+    # Calculate real posture score from latest completed scans
+    avg_risk = db.query(func.avg(models.Scan.risk_score)).filter(models.Scan.status != "running").scalar()
+    if avg_risk is not None:
+        posture_score = max(0, min(100, int(100 - (avg_risk * 10))))
+        compliance_score = round(max(0.0, min(100.0, 100.0 - (avg_risk * 5)), 1))
+    else:
+        posture_score = 100
+        compliance_score = 100.0
+
     return {
-        "total_scans": result.total_scans or 0,
-        "monitored_assets": 142,
-        "critical_vulnerabilities": result.critical or 0,
-        "high_vulnerabilities": result.high or 0,
-        "medium_vulnerabilities": result.medium or 0,
-        "low_vulnerabilities": result.low or 0,
-        "info_vulnerabilities": 18,
+        "total_scans": total_scans,
+        "monitored_assets": monitored_assets,
+        "critical_vulnerabilities": result.critical if result else 0,
+        "high_vulnerabilities": result.high if result else 0,
+        "medium_vulnerabilities": result.medium if result else 0,
+        "low_vulnerabilities": result.low if result else 0,
+        "info_vulnerabilities": 0,
         "active_scans": active_scans,
-        "compliance_score": 96.0,
-        "posture_score": 94,
+        "compliance_score": float(compliance_score),
+        "posture_score": posture_score,
     }
 
 
@@ -394,28 +408,37 @@ def get_risk_statistics(db: Session = Depends(database.get_db)):
         func.coalesce(func.sum(models.Scan.low_count), 0).label("low"),
     ).first()
 
-    critical = result.critical or 4
-    high = result.high or 12
-    medium = result.medium or 28
-    low = result.low or 45
+    critical = int(result.critical) if result else 0
+    high = int(result.high) if result else 0
+    medium = int(result.medium) if result else 0
+    low = int(result.low) if result else 0
 
     severity_breakdown = [
         {"name": "Critical", "value": critical, "color": "#ef4444"},
         {"name": "High",     "value": high,     "color": "#f97316"},
         {"name": "Medium",   "value": medium,   "color": "#f59e0b"},
         {"name": "Low",      "value": low,      "color": "#00f3ff"},
-        {"name": "Info",     "value": 18,       "color": "#64748b"},
+        {"name": "Info",     "value": 0,        "color": "#64748b"},
     ]
 
-    trend_history = [
-        {"date": "Jul 20", "critical": 8,        "high": 18,   "medium": 35},
-        {"date": "Jul 21", "critical": 7,        "high": 16,   "medium": 32},
-        {"date": "Jul 22", "critical": 6,        "high": 15,   "medium": 30},
-        {"date": "Jul 23", "critical": 5,        "high": 14,   "medium": 29},
-        {"date": "Jul 24", "critical": 4,        "high": 14,   "medium": 28},
-        {"date": "Jul 25", "critical": 4,        "high": 13,   "medium": 28},
-        {"date": "Jul 26", "critical": critical, "high": high, "medium": medium},
-    ]
+    # Calculate real chronological trend history from completed scans in DB
+    completed_scans = (
+        db.query(models.Scan)
+        .filter(models.Scan.status != "running")
+        .order_by(models.Scan.created_at.asc())
+        .all()
+    )
+
+    trend_history = []
+    if completed_scans:
+        for s in completed_scans[-10:]:
+            date_label = s.created_at.strftime("%b %d, %H:%M") if s.created_at else s.scan_ref
+            trend_history.append({
+                "date": date_label,
+                "critical": s.critical_count,
+                "high": s.high_count,
+                "medium": s.medium_count,
+            })
 
     return {"severity_breakdown": severity_breakdown, "trend_history": trend_history}
 
@@ -581,6 +604,161 @@ def _get_scan_by_any_ref(scan_ref: str, db: Session) -> models.Scan:
     if not scan:
         scan = db.query(models.Scan).filter(models.Scan.target.ilike(f"%{scan_ref}%")).first()
     return scan
+
+
+# ──────────────────────────────────────────────
+# Scan Comparison & Trend Endpoints (Defined before parameterized {scan_ref})
+# ──────────────────────────────────────────────
+
+@app.get("/api/scans/comparison-options", response_model=List[schemas.ScanComparisonOption])
+def get_comparison_options(db: Session = Depends(database.get_db)):
+    """
+    Returns only real completed scans stored in the database for comparison selection.
+    """
+    scans = (
+        db.query(models.Scan)
+        .filter(models.Scan.status != "running")
+        .order_by(models.Scan.created_at.desc())
+        .all()
+    )
+
+    results = []
+    for s in scans:
+        parsed = scan_comparator.parse_scan_data(s)
+        sec_score = parsed.get("security_score")
+        if sec_score is None:
+            sec_score = max(0, min(100, int(100 - (s.risk_score * 10))))
+
+        tot = s.critical_count + s.high_count + s.medium_count + s.low_count
+        results.append({
+            "id": s.id,
+            "scan_ref": s.scan_ref,
+            "target": s.target,
+            "provider": s.provider,
+            "scan_type": s.scan_type,
+            "status": s.status,
+            "risk_score": s.risk_score,
+            "security_score": sec_score,
+            "risk_level": parsed.get("risk_level", s.status.capitalize()),
+            "critical_count": s.critical_count,
+            "high_count": s.high_count,
+            "medium_count": s.medium_count,
+            "low_count": s.low_count,
+            "total_findings": tot,
+            "duration": s.duration,
+            "created_at": s.created_at.strftime("%Y-%m-%d %H:%M:%S UTC") if s.created_at else "",
+        })
+
+    return results
+
+
+@app.get("/api/scans/trend", response_model=schemas.ScanTrendResponse)
+def get_scans_trend(
+    target: Optional[str] = None,
+    db: Session = Depends(database.get_db),
+):
+    """
+    Fetch real historical score and severity trend data across all completed scans in database.
+    """
+    return scan_comparator.get_real_scan_trend(db, target)
+
+
+@app.get("/api/scans/compare/{prev_scan_ref}/{latest_scan_ref}", response_model=schemas.ScanComparisonResponse)
+def compare_scans(
+    prev_scan_ref: str,
+    latest_scan_ref: str,
+    db: Session = Depends(database.get_db),
+):
+    """
+    Compare two real completed scans.
+    Validates scan existence, completed status, distinct scan refs, and returns structured comparison.
+    """
+    if prev_scan_ref == latest_scan_ref:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot compare a scan with itself. Please select two distinct completed scans.",
+        )
+
+    prev_scan = _get_scan_by_any_ref(prev_scan_ref, db)
+    if not prev_scan:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Previous scan '{prev_scan_ref}' not found in database.",
+        )
+
+    latest_scan = _get_scan_by_any_ref(latest_scan_ref, db)
+    if not latest_scan:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Latest scan '{latest_scan_ref}' not found in database.",
+        )
+
+    if prev_scan.status == "running":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Previous scan '{prev_scan.scan_ref}' is currently running and cannot be compared.",
+        )
+
+    if latest_scan.status == "running":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Latest scan '{latest_scan.scan_ref}' is currently running and cannot be compared.",
+        )
+
+    comparison_result = scan_comparator.compare_scans_data(prev_scan, latest_scan)
+    return comparison_result
+
+
+@app.get("/api/scans/compare/{prev_scan_ref}/{latest_scan_ref}/download")
+def download_comparison_report(
+    prev_scan_ref: str,
+    latest_scan_ref: str,
+    format: str = "html",
+    db: Session = Depends(database.get_db),
+):
+    """
+    Download comparison report in HTML or CSV format based on real comparison results.
+    """
+    if prev_scan_ref == latest_scan_ref:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot generate comparison report for identical scans.",
+        )
+
+    prev_scan = _get_scan_by_any_ref(prev_scan_ref, db)
+    if not prev_scan:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Previous scan '{prev_scan_ref}' not found in database.",
+        )
+
+    latest_scan = _get_scan_by_any_ref(latest_scan_ref, db)
+    if not latest_scan:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Latest scan '{latest_scan_ref}' not found in database.",
+        )
+
+    comparison_result = scan_comparator.compare_scans_data(prev_scan, latest_scan)
+
+    if format.lower() == "csv":
+        csv_str = report_generator.generate_comparison_csv_report(comparison_result)
+        return Response(
+            content=csv_str,
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": f"attachment; filename=CLOUDVULN_Comparison_{prev_scan.scan_ref}_vs_{latest_scan.scan_ref}.csv"
+            },
+        )
+    else:
+        html_str = report_generator.generate_comparison_html_report(comparison_result)
+        return Response(
+            content=html_str,
+            media_type="text/html",
+            headers={
+                "Content-Disposition": f"attachment; filename=CLOUDVULN_Comparison_{prev_scan.scan_ref}_vs_{latest_scan.scan_ref}.html"
+            },
+        )
 
 
 @app.get("/api/scans/{scan_ref}", response_model=schemas.ScanDetailResponse)
@@ -761,4 +939,5 @@ def download_report_file(
             media_type="text/html",
             headers={"Content-Disposition": f"attachment; filename=CLOUDVULN_Report_{scan.scan_ref}.html"},
         )
+
 

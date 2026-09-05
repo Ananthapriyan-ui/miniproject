@@ -1,4 +1,4 @@
-﻿import io
+import io
 import datetime
 import html as html_module
 from typing import Dict, Any, List
@@ -470,4 +470,319 @@ def generate_csv_report(scan_data: Dict[str, Any]) -> str:
         writer.writerow(["CVE ID", "Severity", "CVSS Score", "Description", "Published Date", "Reference URL"])
         for c in cve_findings:
             writer.writerow([c.get("cve_id",""), c.get("severity",""), c.get("cvss_score",""), c.get("description",""), c.get("published_date",""), c.get("reference_url","")])
+    return output.getvalue()
+
+
+def generate_comparison_html_report(comparison: Dict[str, Any]) -> str:
+    """Generate professional HTML comparison report between two real scans."""
+    prev = comparison.get("previous_scan", {})
+    latest = comparison.get("latest_scan", {})
+    summary = comparison.get("summary", {})
+    severity = comparison.get("severity_comparison", {})
+    vuln_changes = comparison.get("vulnerability_changes", {})
+    owasp_list = comparison.get("owasp_comparison", [])
+    cve_comp = comparison.get("cve_comparison", {})
+    header_comp = comparison.get("header_comparison", {})
+    ssl_comp = comparison.get("ssl_comparison", {})
+
+    prev_ref = _esc(prev.get("scan_ref", "Previous Scan"))
+    latest_ref = _esc(latest.get("scan_ref", "Latest Scan"))
+    target = _esc(latest.get("target") or prev.get("target") or "Unknown Target")
+
+    prev_score = summary.get("previous_security_score", 0)
+    latest_score = summary.get("latest_security_score", 0)
+    score_diff = summary.get("score_difference", 0)
+    pct_change = summary.get("percentage_change", 0.0)
+    security_status = _esc(summary.get("security_status", "No Significant Change"))
+
+    status_color = "#34d399" if "Improved" in security_status else ("#f87171" if "Degraded" in security_status else "#94a3b8")
+    status_badge = (
+        f'<span style="display:inline-block;padding:6px 16px;border-radius:9999px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;'
+        f'background:rgba(255,255,255,0.05);border:1px solid {status_color};color:{status_color};">{security_status}</span>'
+    )
+
+    diff_color = "#34d399" if score_diff > 0 else ("#f87171" if score_diff < 0 else "#94a3b8")
+    diff_prefix = "+" if score_diff > 0 else ""
+
+    # Severity Matrix HTML
+    crit = severity.get("critical", {})
+    high = severity.get("high", {})
+    med = severity.get("medium", {})
+    low = severity.get("low", {})
+    tot = severity.get("total", {})
+
+    def _delta_badge(change: int) -> str:
+        if change < 0:
+            return f'<span style="color:#34d399;font-weight:bold;">{change} (Reduced)</span>'
+        elif change > 0:
+            return f'<span style="color:#f87171;font-weight:bold;">+{change} (Increased)</span>'
+        return '<span style="color:#94a3b8;">0 (Unchanged)</span>'
+
+    severity_table_html = f"""
+    <div class="section-title">&#128202; Severity &amp; Finding Delta Matrix</div>
+    <div class="info-box">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+          <tr style="border-bottom:1px solid #334155;color:#94a3b8;text-align:left;">
+            <th style="padding:8px 10px;">Severity Level</th>
+            <th style="padding:8px 10px;">Previous ({prev_ref})</th>
+            <th style="padding:8px 10px;">Latest ({latest_ref})</th>
+            <th style="padding:8px 10px;">Change / Impact</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom:1px solid #1e293b;"><td style="padding:8px 10px;color:#f87171;font-weight:bold;">Critical</td><td style="padding:8px 10px;">{crit.get('previous', 0)}</td><td style="padding:8px 10px;">{crit.get('latest', 0)}</td><td style="padding:8px 10px;">{_delta_badge(crit.get('change', 0))}</td></tr>
+          <tr style="border-bottom:1px solid #1e293b;"><td style="padding:8px 10px;color:#fb923c;font-weight:bold;">High</td><td style="padding:8px 10px;">{high.get('previous', 0)}</td><td style="padding:8px 10px;">{high.get('latest', 0)}</td><td style="padding:8px 10px;">{_delta_badge(high.get('change', 0))}</td></tr>
+          <tr style="border-bottom:1px solid #1e293b;"><td style="padding:8px 10px;color:#fbbf24;font-weight:bold;">Medium</td><td style="padding:8px 10px;">{med.get('previous', 0)}</td><td style="padding:8px 10px;">{med.get('latest', 0)}</td><td style="padding:8px 10px;">{_delta_badge(med.get('change', 0))}</td></tr>
+          <tr style="border-bottom:1px solid #1e293b;"><td style="padding:8px 10px;color:#60a5fa;font-weight:bold;">Low</td><td style="padding:8px 10px;">{low.get('previous', 0)}</td><td style="padding:8px 10px;">{low.get('latest', 0)}</td><td style="padding:8px 10px;">{_delta_badge(low.get('change', 0))}</td></tr>
+          <tr style="font-weight:bold;background:rgba(255,255,255,0.02);"><td style="padding:8px 10px;color:#f1f5f9;">Total Findings</td><td style="padding:8px 10px;">{tot.get('previous', 0)}</td><td style="padding:8px 10px;">{tot.get('latest', 0)}</td><td style="padding:8px 10px;">{_delta_badge(tot.get('change', 0))}</td></tr>
+        </tbody>
+      </table>
+    </div>
+    """
+
+    # Vulnerability Change Analysis (Fixed, New, Persistent)
+    fixed = vuln_changes.get("fixed", [])
+    new = vuln_changes.get("new", [])
+    persistent = vuln_changes.get("persistent", [])
+
+    def _render_vuln_list(items: List[Dict], badge_color: str, title: str) -> str:
+        if not items:
+            return f'<div style="color:#64748b;font-size:12px;padding:8px 0;">No {title.lower()} findings.</div>'
+        rows = []
+        for it in items:
+            cve = _esc(it.get("cve_id") or it.get("id") or "FINDING")
+            t = _esc(it.get("title", ""))
+            sev = _esc(it.get("severity", "Medium"))
+            comp = _esc(it.get("component", "Application"))
+            rows.append(
+                f'<div style="padding:8px 12px;background:#090d16;border:1px solid #1e293b;border-radius:8px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">'
+                f'<div><span style="font-family:monospace;font-size:11px;color:{badge_color};font-weight:bold;margin-right:8px;">{cve}</span>'
+                f'<span style="font-size:12px;color:#e2e8f0;">{t}</span>'
+                f'<div style="font-size:11px;color:#64748b;margin-top:2px;">Component: {comp}</div></div>'
+                f'<span style="font-size:11px;padding:2px 8px;border-radius:4px;{_severity_badge_style(sev)}">{sev}</span>'
+                f'</div>'
+            )
+        return "".join(rows)
+
+    vuln_change_html = f"""
+    <div class="section-title">&#128269; Vulnerability Lifecycle Analysis</div>
+    <div class="meta-grid" style="grid-template-columns: repeat(3, 1fr);">
+      <div class="meta-item" style="border-top:3px solid #34d399;">
+        <div class="meta-label" style="color:#34d399;">Fixed Vulnerabilities ({len(fixed)})</div>
+        <div style="margin-top:10px;">{_render_vuln_list(fixed, '#34d399', 'Fixed')}</div>
+      </div>
+      <div class="meta-item" style="border-top:3px solid #f87171;">
+        <div class="meta-label" style="color:#f87171;">New Vulnerabilities ({len(new)})</div>
+        <div style="margin-top:10px;">{_render_vuln_list(new, '#f87171', 'New')}</div>
+      </div>
+      <div class="meta-item" style="border-top:3px solid #fbbf24;">
+        <div class="meta-label" style="color:#fbbf24;">Persistent Vulnerabilities ({len(persistent)})</div>
+        <div style="margin-top:10px;">{_render_vuln_list(persistent, '#fbbf24', 'Persistent')}</div>
+      </div>
+    </div>
+    """
+
+    # OWASP Top 10 Comparison HTML
+    owasp_rows = []
+    for ow in owasp_list:
+        chg = ow.get("change_type", "No Change")
+        chg_color = "#34d399" if chg == "Improvement" else ("#f87171" if chg == "New Issue" else ("#fbbf24" if chg == "Persistent Issue" else "#94a3b8"))
+        owasp_rows.append(
+            f'<tr style="border-bottom:1px solid #1e293b;">'
+            f'<td style="padding:8px 10px;font-family:monospace;color:#38bdf8;">{_esc(ow.get("owasp_id"))}</td>'
+            f'<td style="padding:8px 10px;font-weight:600;">{_esc(ow.get("category"))}</td>'
+            f'<td style="padding:8px 10px;"><span style="display:inline-block;padding:2px 8px;border-radius:9999px;font-size:10px;{_status_badge_style(ow.get("previous_status"))}">{_esc(ow.get("previous_status"))}</span></td>'
+            f'<td style="padding:8px 10px;"><span style="display:inline-block;padding:2px 8px;border-radius:9999px;font-size:10px;{_status_badge_style(ow.get("latest_status"))}">{_esc(ow.get("latest_status"))}</span></td>'
+            f'<td style="padding:8px 10px;color:{chg_color};font-weight:600;">{_esc(chg)}</td>'
+            f'</tr>'
+        )
+
+    owasp_table_html = f"""
+    <div class="section-title">&#128737; OWASP Top 10 Security Posture Comparison</div>
+    <div class="info-box">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead>
+          <tr style="border-bottom:1px solid #334155;color:#94a3b8;text-align:left;">
+            <th style="padding:8px 10px;">ID</th>
+            <th style="padding:8px 10px;">OWASP Category</th>
+            <th style="padding:8px 10px;">Previous Status</th>
+            <th style="padding:8px 10px;">Latest Status</th>
+            <th style="padding:8px 10px;">Posture Evolution</th>
+          </tr>
+        </thead>
+        <tbody>
+          {"".join(owasp_rows)}
+        </tbody>
+      </table>
+    </div>
+    """
+
+    # HTTP Headers & SSL/TLS section
+    hdr_fixed = header_comp.get("fixed", [])
+    hdr_new_missing = header_comp.get("newly_missing", [])
+    hdr_still_missing = header_comp.get("still_missing", [])
+    hdr_secure = header_comp.get("remained_secure", [])
+
+    header_summary_text = f"Headers Fixed: {len(hdr_fixed)} | Newly Missing: {len(hdr_new_missing)} | Still Missing: {len(hdr_still_missing)} | Remained Secure: {len(hdr_secure)}"
+
+    headers_ssl_html = f"""
+    <div class="section-title">&#128272; HTTP Security Headers &amp; SSL/TLS Audit Comparison</div>
+    <div class="meta-grid" style="grid-template-columns: 1fr 1fr;">
+      <div class="meta-item">
+        <div class="meta-label">HTTP Security Headers Trend</div>
+        <div style="font-size:12px;color:#e2e8f0;margin-top:6px;line-height:1.6;">
+          <div><strong>Previous Header Score:</strong> {header_comp.get('previous_score', 0)}% &rarr; <strong>Latest Score:</strong> {header_comp.get('latest_score', 0)}%</div>
+          <div style="color:#94a3b8;margin-top:4px;">{header_summary_text}</div>
+          <div style="margin-top:8px;">
+            <span style="display:inline-block;padding:2px 8px;margin:2px;border-radius:4px;background:rgba(16,185,129,0.1);color:#34d399;font-size:11px;">Fixed: {len(hdr_fixed)}</span>
+            <span style="display:inline-block;padding:2px 8px;margin:2px;border-radius:4px;background:rgba(239,68,68,0.1);color:#f87171;font-size:11px;">Newly Missing: {len(hdr_new_missing)}</span>
+            <span style="display:inline-block;padding:2px 8px;margin:2px;border-radius:4px;background:rgba(245,158,11,0.1);color:#fbbf24;font-size:11px;">Still Missing: {len(hdr_still_missing)}</span>
+            <span style="display:inline-block;padding:2px 8px;margin:2px;border-radius:4px;background:rgba(56,189,248,0.1);color:#38bdf8;font-size:11px;">Secure: {len(hdr_secure)}</span>
+          </div>
+        </div>
+      </div>
+      <div class="meta-item">
+        <div class="meta-label">SSL / TLS Certificate Posture</div>
+        <div style="font-size:12px;color:#e2e8f0;margin-top:6px;line-height:1.6;">
+          <div><strong>SSL Evolution:</strong> <span style="color:#34d399;font-weight:bold;">{_esc(ssl_comp.get('status', 'Unchanged'))}</span></div>
+          <div><strong>Previous:</strong> {_esc(ssl_comp.get('previous_cert_status'))} ({_esc(ssl_comp.get('previous_tls_version'))}, {_esc(ssl_comp.get('previous_days_left'))} days left)</div>
+          <div><strong>Latest:</strong> {_esc(ssl_comp.get('latest_cert_status'))} ({_esc(ssl_comp.get('latest_tls_version'))}, {_esc(ssl_comp.get('latest_days_left'))} days left)</div>
+          <div style="color:#94a3b8;font-size:11px;margin-top:4px;">Issuer: {_esc(ssl_comp.get('latest_issuer'))}</div>
+        </div>
+      </div>
+    </div>
+    """
+
+    generated_at = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CloudVuln Security Comparison Report - {prev_ref} vs {latest_ref}</title>
+<style>{CSS}
+.c-critical {{ color: #f87171; }}
+.c-high {{ color: #fb923c; }}
+.c-medium {{ color: #fbbf24; }}
+.c-low {{ color: #60a5fa; }}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="report-header">
+  <div>
+    <div class="brand-logo">&#9729; CloudVuln</div>
+    <div class="brand-sub">SCAN COMPARISON &amp; SECURITY TREND REPORT</div>
+  </div>
+  <div class="report-id-block">
+    <div class="report-id">Target: <strong style="color:#e2e8f0;">{target}</strong></div>
+    <div class="report-id" style="margin-top:4px;">Comparing: <strong>{prev_ref}</strong> &rarr; <strong>{latest_ref}</strong></div>
+    <div style="margin-top:8px;">{status_badge}</div>
+  </div>
+</div>
+
+<div class="summary-grid">
+  <div class="summary-card" style="border-color:rgba(56,189,248,0.3);">
+    <div class="count" style="color:#38bdf8;">{prev_score} <span style="font-size:18px;color:#64748b;">&rarr;</span> {latest_score}</div>
+    <div class="label">Security Score (0-100)</div>
+    <div style="font-size:12px;margin-top:6px;color:{diff_color};font-weight:bold;">{diff_prefix}{score_diff} pts ({pct_change}%)</div>
+  </div>
+  <div class="summary-card" style="border-color:rgba(16,185,129,0.3);">
+    <div class="count" style="color:#34d399;">{len(fixed)}</div>
+    <div class="label">Findings Fixed</div>
+    <div style="font-size:11px;margin-top:6px;color:#64748b;">Resolved in latest scan</div>
+  </div>
+  <div class="summary-card" style="border-color:rgba(239,68,68,0.3);">
+    <div class="count" style="color:#f87171;">{len(new)}</div>
+    <div class="label">New Findings</div>
+    <div style="font-size:11px;margin-top:6px;color:#64748b;">Introduced since previous</div>
+  </div>
+  <div class="summary-card" style="border-color:rgba(245,158,11,0.3);">
+    <div class="count" style="color:#fbbf24;">{len(persistent)}</div>
+    <div class="label">Persistent Findings</div>
+    <div style="font-size:11px;margin-top:6px;color:#64748b;">Remaining unmitigated</div>
+  </div>
+</div>
+
+{severity_table_html}
+{vuln_change_html}
+{owasp_table_html}
+{headers_ssl_html}
+
+<div class="report-footer">
+  <div>Generated by <strong>CloudVuln Security Comparison Engine v2.0</strong></div>
+  <div>Comparing: <strong>{prev_ref}</strong> ({prev.get('created_at','')}) vs <strong>{latest_ref}</strong> ({latest.get('created_at','')})</div>
+  <div>Report Generated At: <strong>{generated_at}</strong></div>
+  <div style="margin-top:8px;color:#1e293b;">Confidential SecOps Differential Audit Artifact.</div>
+</div>
+</div>
+</body>
+</html>"""
+
+
+def generate_comparison_csv_report(comparison: Dict[str, Any]) -> str:
+    """Export comparison report diff matrix in CSV format."""
+    import csv
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    prev = comparison.get("previous_scan", {})
+    latest = comparison.get("latest_scan", {})
+    summary = comparison.get("summary", {})
+    severity = comparison.get("severity_comparison", {})
+    vuln_changes = comparison.get("vulnerability_changes", {})
+    owasp_list = comparison.get("owasp_comparison", [])
+    cve_comp = comparison.get("cve_comparison", {})
+    header_comp = comparison.get("header_comparison", {})
+
+    writer.writerow(["CloudVuln Scan Comparison & Security Trend Report"])
+    writer.writerow([])
+    writer.writerow(["Comparison Metrics", "Value"])
+    writer.writerow(["Target", latest.get("target", "")])
+    writer.writerow(["Previous Scan Reference", prev.get("scan_ref", "")])
+    writer.writerow(["Previous Scan Date", prev.get("created_at", "")])
+    writer.writerow(["Previous Security Score", summary.get("previous_security_score", 0)])
+    writer.writerow(["Latest Scan Reference", latest.get("scan_ref", "")])
+    writer.writerow(["Latest Scan Date", latest.get("created_at", "")])
+    writer.writerow(["Latest Security Score", summary.get("latest_security_score", 0)])
+    writer.writerow(["Score Difference", summary.get("score_difference", 0)])
+    writer.writerow(["Percentage Change", f"{summary.get('percentage_change', 0.0)}%"])
+    writer.writerow(["Security Evolution Status", summary.get("security_status", "")])
+    writer.writerow([])
+
+    writer.writerow(["Severity Breakdown", "Previous Count", "Latest Count", "Change"])
+    for sev in ["critical", "high", "medium", "low", "total"]:
+        data = severity.get(sev, {})
+        writer.writerow([sev.capitalize(), data.get("previous", 0), data.get("latest", 0), data.get("change", 0)])
+    writer.writerow([])
+
+    writer.writerow(["Vulnerability Lifecycle Category", "Count"])
+    writer.writerow(["Fixed Vulnerabilities", len(vuln_changes.get("fixed", []))])
+    writer.writerow(["New Vulnerabilities", len(vuln_changes.get("new", []))])
+    writer.writerow(["Persistent Vulnerabilities", len(vuln_changes.get("persistent", []))])
+    writer.writerow([])
+
+    if vuln_changes.get("fixed"):
+        writer.writerow(["Fixed Vulnerabilities List"])
+        writer.writerow(["ID / CVE", "Title", "Severity", "Component", "Category"])
+        for v in vuln_changes["fixed"]:
+            writer.writerow([v.get("cve_id") or v.get("id"), v.get("title"), v.get("severity"), v.get("component"), v.get("category")])
+        writer.writerow([])
+
+    if vuln_changes.get("new"):
+        writer.writerow(["New Vulnerabilities List"])
+        writer.writerow(["ID / CVE", "Title", "Severity", "Component", "Category"])
+        for v in vuln_changes["new"]:
+            writer.writerow([v.get("cve_id") or v.get("id"), v.get("title"), v.get("severity"), v.get("component"), v.get("category")])
+        writer.writerow([])
+
+    if owasp_list:
+        writer.writerow(["OWASP Top 10 Comparison"])
+        writer.writerow(["OWASP ID", "Category", "Previous Status", "Latest Status", "Change Type", "Recommendation"])
+        for ow in owasp_list:
+            writer.writerow([ow.get("owasp_id"), ow.get("category"), ow.get("previous_status"), ow.get("latest_status"), ow.get("change_type"), ow.get("recommendation")])
+        writer.writerow([])
+
     return output.getvalue()

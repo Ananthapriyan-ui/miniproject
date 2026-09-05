@@ -13,7 +13,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '.
 import { PageSkeleton } from '../components/ui/Loader';
 import { useToast } from '../components/ui/Toast';
 import { useAuth } from '../context/AuthContext';
-import api from '../lib/api';
+import api, { formatScanDate } from '../lib/api';
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
@@ -55,31 +55,23 @@ const POSTURE_DATA = [
   { subject: 'Network',  score: 95, fullMark: 100 },
 ];
 
-const FALLBACK_SUMMARY = {
-  total_scans: 15, monitored_assets: 142,
-  critical_vulnerabilities: 4, high_vulnerabilities: 12,
-  medium_vulnerabilities: 28, low_vulnerabilities: 45,
-  info_vulnerabilities: 18, active_scans: 2,
-  compliance_score: 96.0, posture_score: 94,
+const EMPTY_SUMMARY = {
+  total_scans: 0, monitored_assets: 0,
+  critical_vulnerabilities: 0, high_vulnerabilities: 0,
+  medium_vulnerabilities: 0, low_vulnerabilities: 0,
+  info_vulnerabilities: 0, active_scans: 0,
+  compliance_score: 100.0, posture_score: 100,
 };
 
-const FALLBACK_STATS = {
+const EMPTY_STATS = {
   severity_breakdown: [
-    { name: 'Critical', value: 4,  color: '#ef4444' },
-    { name: 'High',     value: 12, color: '#f97316' },
-    { name: 'Medium',   value: 28, color: '#f59e0b' },
-    { name: 'Low',      value: 45, color: '#00f3ff' },
-    { name: 'Info',     value: 18, color: '#64748b' },
+    { name: 'Critical', value: 0, color: '#ef4444' },
+    { name: 'High',     value: 0, color: '#f97316' },
+    { name: 'Medium',   value: 0, color: '#f59e0b' },
+    { name: 'Low',      value: 0, color: '#00f3ff' },
+    { name: 'Info',     value: 0, color: '#64748b' },
   ],
-  trend_history: [
-    { date: 'Jul 20', critical: 8, high: 18, medium: 35 },
-    { date: 'Jul 21', critical: 7, high: 16, medium: 32 },
-    { date: 'Jul 22', critical: 6, high: 15, medium: 30 },
-    { date: 'Jul 23', critical: 5, high: 14, medium: 29 },
-    { date: 'Jul 24', critical: 4, high: 14, medium: 28 },
-    { date: 'Jul 25', critical: 4, high: 13, medium: 28 },
-    { date: 'Jul 26', critical: 4, high: 12, medium: 28 },
-  ],
+  trend_history: [],
 };
 
 // ── Main Dashboard Page ─────────────────────────────────────────────
@@ -107,14 +99,14 @@ export const DashboardPage = () => {
         api.recentScans(),
         api.activity(),
       ]);
-      setSummary(sumData);
-      setRiskStats(statsData);
-      setRecentScans(scansData);
-      setActivityLogs(actData);
+      setSummary(sumData || EMPTY_SUMMARY);
+      setRiskStats(statsData || EMPTY_STATS);
+      setRecentScans(scansData || []);
+      setActivityLogs(actData || []);
     } catch (e) {
       console.error("Dashboard loading error", e);
-      setSummary(FALLBACK_SUMMARY);
-      setRiskStats(FALLBACK_STATS);
+      setSummary(EMPTY_SUMMARY);
+      setRiskStats(EMPTY_STATS);
       setRecentScans([]);
       setActivityLogs([]);
     } finally {
@@ -136,14 +128,14 @@ export const DashboardPage = () => {
     fetchCveFeed('Tomcat');
   }, [fetchDashboardData, fetchCveFeed]);
 
-  const totalVulns = riskStats?.severity_breakdown?.reduce((a, c) => a + c.value, 0) || 107;
+  const totalVulns = riskStats?.severity_breakdown?.reduce((a, c) => a + c.value, 0) || 0;
 
   if (loading) return <PageSkeleton />;
 
-  const recentReports = recentScans.slice(0, 5).map(scan => ({
+  const recentReports = (recentScans || []).slice(0, 5).map(scan => ({
     id: scan.scan_ref,
     target: scan.target,
-    date: scan.created_at ? scan.created_at.substring(0, 10) : '',
+    date: formatScanDate(scan.created_at),
     risk: scan.risk_score
   }));
 
@@ -407,6 +399,7 @@ export const DashboardPage = () => {
                     <TableHead>Provider</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Risk</TableHead>
+                    <TableHead>Execution Date</TableHead>
                     <TableHead className="text-right">Action</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -427,6 +420,9 @@ export const DashboardPage = () => {
                       </TableCell>
                       <TableCell className="font-mono font-bold text-xs text-rose-400">
                         {scan.risk_score}
+                      </TableCell>
+                      <TableCell className="text-xs text-slate-400 font-mono">
+                        {formatScanDate(scan.created_at)}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button

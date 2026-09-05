@@ -4,6 +4,10 @@ from sqlalchemy.orm import relationship
 from database import Base
 
 
+def now_utc():
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -13,7 +17,7 @@ class User(Base):
     hashed_password = Column(String(255), nullable=False)
     role = Column(String(100), default="SecOps Engineer")
     is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.datetime.now(datetime.timezone.utc))
+    created_at = Column(DateTime, default=now_utc)
     last_login = Column(DateTime, nullable=True)
 
     __table_args__ = (
@@ -37,7 +41,7 @@ class Scan(Base):
     risk_score = Column(Float, default=0.0, nullable=False)
     duration = Column(String(30), default="2m 15s")
     scan_data = Column(Text, nullable=True)  # Store JSON of full analysis results
-    created_at = Column(DateTime, default=datetime.datetime.now(datetime.timezone.utc), index=True)
+    created_at = Column(DateTime, default=now_utc, index=True)
 
     vulnerabilities = relationship(
         "Vulnerability",
@@ -65,7 +69,7 @@ class Vulnerability(Base):
     remediation = Column(Text, nullable=False)
     remediation_cmd = Column(Text, nullable=False)
     scan_ref = Column(String(50), ForeignKey("scans.scan_ref", ondelete="CASCADE"), nullable=False, index=True)
-    created_at = Column(DateTime, default=datetime.datetime.now(datetime.timezone.utc))
+    created_at = Column(DateTime, default=now_utc)
 
     scan = relationship("Scan", back_populates="vulnerabilities")
 
@@ -81,7 +85,7 @@ class ActivityLog(Base):
     text = Column(String(500), nullable=False)
     type = Column(String(20), default="info")  # info, success, warning, error
     time_ago = Column(String(50), default="Just now")
-    created_at = Column(DateTime, default=datetime.datetime.now(datetime.timezone.utc), index=True)
+    created_at = Column(DateTime, default=now_utc, index=True)
 
 
 class Report(Base):
@@ -96,4 +100,4 @@ class Report(Base):
     duration = Column(String(30), default="2m 15s")
     html_generated = Column(Boolean, default=False)
     csv_generated = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.datetime.now(datetime.timezone.utc))
+    created_at = Column(DateTime, default=now_utc)

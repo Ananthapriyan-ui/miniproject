@@ -1,14 +1,18 @@
 /**
  * CloudVuln API Client
- * - Auto-injects Authorization header
- * - Auto-refreshes expired access tokens using refresh token
+ * - Auto-injects Authorization header (reads JWT from Supabase session)
  * - In-memory response caching with TTL
  * - XSS prevention: all params URL-encoded
+ *
+ * Auth is now handled by Supabase. The Supabase access token is forwarded
+ * to the Python backend as a Bearer token so it can verify the user.
  *
  * IMPORTANT: Do NOT set VITE_API_URL in Vercel environment variables.
  * The vercel.json rewrite rule proxies all /api/* calls to Render automatically.
  * Setting VITE_API_URL would cause direct cross-origin requests which fail due to CORS/cold-starts.
  */
+
+import { supabase } from './supabase';
 
 const BASE_URL = import.meta.env.VITE_API_URL || '/api';
 const CACHE_TTL_MS = 30_000; // 30 seconds default
@@ -43,57 +47,20 @@ export function invalidateCache(pattern) {
   }
 }
 
-// ─── Token management ─────────────────────────────────────────────
-function getToken() {
-  return localStorage.getItem('cloudvuln_token');
-}
-
-function getRefreshToken() {
-  return localStorage.getItem('cloudvuln_refresh_token');
-}
-
-function setTokens(access, refresh) {
-  localStorage.setItem('cloudvuln_token', access);
-  if (refresh) localStorage.setItem('cloudvuln_refresh_token', refresh);
-}
-
-function clearTokens() {
-  localStorage.removeItem('cloudvuln_token');
-  localStorage.removeItem('cloudvuln_refresh_token');
-}
-
-// ─── Token refresh flow ───────────────────────────────────────────
-let isRefreshing = false;
-let refreshSubscribers = [];
-
-function onTokenRefreshed(newToken) {
-  refreshSubscribers.forEach((cb) => cb(newToken));
-  refreshSubscribers = [];
-}
-
-async function tryRefreshToken() {
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) {
-    clearTokens();
-    window.location.href = '/login';
-    throw new Error('No refresh token available');
+// ─── Token retrieval (Supabase-aware) ────────────────────────────
+/**
+ * Returns the current access token.
+ * - If demo mode: returns the stored legacy demo token string.
+ * - Otherwise: reads the live JWT from the Supabase session.
+ */
+async function getAccessToken() {
+  // Demo mode fallback
+  if (localStorage.getItem('cloudvuln_demo') === '1') {
+    return 'demo_token_secops_lead';
   }
 
-  const res = await fetch(`${BASE_URL}/auth/refresh`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refresh_token: refreshToken }),
-  });
-
-  if (!res.ok) {
-    clearTokens();
-    window.location.href = '/login';
-    throw new Error('Session expired. Please log in again.');
-  }
-
-  const data = await res.json();
-  setTokens(data.access_token, data.refresh_token);
-  return data.access_token;
+  const { data } = await supabase.auth.getSession();
+  return data?.session?.access_token || null;
 }
 
 // ─── Core fetch wrapper ───────────────────────────────────────────
@@ -107,40 +74,46 @@ async function apiFetch(endpoint, options = {}, useCache = false, cacheTtl = CAC
     if (cached) return cached;
   }
 
-  const makeRequest = async (token) => {
-    const headers = {
-      'Content-Type': 'application/json',
-      'X-Requested-With': 'XMLHttpRequest',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options.headers || {}),
-    };
+  const token = await getAccessToken();
 
-    return fetch(url, {
-      ...options,
-      headers,
-      credentials: 'same-origin',
-    });
+  const headers = {
+    'Content-Type': 'application/json',
+    'X-Requested-With': 'XMLHttpRequest',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(options.headers || {}),
   };
 
-  let token = getToken();
-  let response = await makeRequest(token);
+  const response = await fetch(url, {
+    ...options,
+    headers,
+    credentials: 'same-origin',
+  });
 
-  // If 401, attempt token refresh once
-  if (response.status === 401 && getRefreshToken()) {
-    if (!isRefreshing) {
-      isRefreshing = true;
-      try {
-        token = await tryRefreshToken();
-        onTokenRefreshed(token);
-      } finally {
-        isRefreshing = false;
+  // If Supabase session expired mid-request, attempt a silent refresh and retry once
+  if (response.status === 401) {
+    const { data: refreshed } = await supabase.auth.refreshSession();
+    if (refreshed?.session) {
+      const retryHeaders = {
+        ...headers,
+        Authorization: `Bearer ${refreshed.session.access_token}`,
+      };
+      const retryResponse = await fetch(url, {
+        ...options,
+        headers: retryHeaders,
+        credentials: 'same-origin',
+      });
+      if (!retryResponse.ok) {
+        const errData = await retryResponse.json().catch(() => ({}));
+        throw new Error(errData.message || errData.detail || `Request failed with status ${retryResponse.status}`);
       }
-    } else {
-      // Wait for ongoing refresh
-      await new Promise((resolve) => refreshSubscribers.push(resolve));
-      token = getToken();
+      const retryData = await retryResponse.json().catch(() => retryResponse.text());
+      if (useCache && (!options.method || options.method === 'GET')) {
+        setCache(cacheKey, retryData, cacheTtl);
+      }
+      return retryData;
     }
-    response = await makeRequest(token);
+    // Session truly expired — let Supabase onAuthStateChange handle the redirect
+    throw new Error('Session expired. Please sign in again.');
   }
 
   // Parse response
@@ -170,7 +143,8 @@ async function apiFetch(endpoint, options = {}, useCache = false, cacheTtl = CAC
 // ─── Public API methods ───────────────────────────────────────────
 
 export const api = {
-  // Auth
+  // Auth — these still proxy to Python for backwards-compat (e.g. demo mode)
+  // Real auth now goes through Supabase directly via AuthContext
   login: (email, password) =>
     apiFetch('/auth/login', {
       method: 'POST',
@@ -181,12 +155,6 @@ export const api = {
     apiFetch('/auth/register', {
       method: 'POST',
       body: JSON.stringify({ email, password, full_name, role }),
-    }),
-
-  refresh: () =>
-    apiFetch('/auth/refresh', {
-      method: 'POST',
-      body: JSON.stringify({ refresh_token: getRefreshToken() }),
     }),
 
   me: () => apiFetch('/auth/me', {}, true, 60_000),
@@ -258,8 +226,54 @@ export const api = {
   getReportDownloadUrl: (scanRef, format = 'html') =>
     `/api/reports/${encodeURIComponent(scanRef)}/download?format=${format}`,
 
+  // Scan Comparison & Security Trends
+  getComparisonOptions: () => apiFetch('/scans/comparison-options', {}, false),
+  compareScans: (prevRef, latestRef) =>
+    apiFetch(`/scans/compare/${encodeURIComponent(prevRef)}/${encodeURIComponent(latestRef)}`, {}, false),
+  getScanTrend: (target) =>
+    apiFetch(`/scans/trend${target ? `?target=${encodeURIComponent(target)}` : ''}`, {}, false),
+  getComparisonDownloadUrl: (prevRef, latestRef, format = 'html') =>
+    `/api/scans/compare/${encodeURIComponent(prevRef)}/${encodeURIComponent(latestRef)}/download?format=${format}`,
+
   health: () => apiFetch('/health', {}, false),
 };
 
-export { setTokens, clearTokens, getToken, getRefreshToken };
+export function formatScanDate(dateStr) {
+  if (!dateStr) return '—';
+  try {
+    // If dateStr contains 'UTC' or ends with 'Z', parse standard ISO
+    let clean = String(dateStr).trim();
+    if (clean.includes(' UTC')) {
+      clean = clean.replace(' UTC', 'Z').replace(' ', 'T');
+    } else if (!clean.includes('Z') && !clean.includes('+') && !clean.includes('T')) {
+      clean = clean.replace(' ', 'T') + 'Z';
+    }
+    const d = new Date(clean);
+    if (isNaN(d.getTime())) return dateStr;
+
+    // Format to: DD MMM YYYY, hh:mm A
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const month = months[d.getUTCMonth()];
+    const year = d.getUTCFullYear();
+    
+    let hours = d.getUTCHours();
+    const minutes = String(d.getUTCMinutes()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12;
+    const hourStr = String(hours).padStart(2, '0');
+
+    return `${day} ${month} ${year}, ${hourStr}:${minutes} ${ampm} UTC`;
+  } catch {
+    return dateStr;
+  }
+}
+
+// ─── Legacy token helpers (kept for compatibility) ────────────────
+// These are no-ops now — Supabase manages the session internally.
+export function setTokens() {}
+export function clearTokens() { localStorage.removeItem('cloudvuln_demo'); }
+export function getToken() { return localStorage.getItem('cloudvuln_demo') === '1' ? 'demo_token_secops_lead' : null; }
+export function getRefreshToken() { return null; }
+
 export default api;

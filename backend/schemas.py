@@ -227,6 +227,7 @@ class ActivityLogResponse(BaseModel):
     text: str
     type: str
     time_ago: str
+    created_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -366,5 +367,91 @@ class SecurityAnalysisResponse(BaseModel):
     headers_summary: HeaderSummary
     cve_findings: List[CVEResult]
     recommendations: List[str]
+
+
+# ──────────────────────────────────────────────
+# Scan Comparison & Trend Schemas
+# ──────────────────────────────────────────────
+
+class ScanComparisonOption(BaseModel):
+    id: int
+    scan_ref: str
+    target: str
+    provider: str
+    scan_type: str
+    status: str
+    risk_score: float
+    security_score: int
+    risk_level: str
+    critical_count: int
+    high_count: int
+    medium_count: int
+    low_count: int
+    total_findings: int
+    duration: str
+    created_at: str
+
+
+class ComparisonSummary(BaseModel):
+    security_status: str
+    status_category: str  # improved, degraded, neutral
+    previous_security_score: int
+    latest_security_score: int
+    score_difference: int
+    percentage_change: float
+    findings_fixed_count: int
+    new_findings_count: int
+    persistent_findings_count: int
+    critical_change: int
+    high_change: int
+    medium_change: int
+    low_change: int
+    owasp_improvements: int
+    owasp_regressions: int
+    cve_improvements: int
+    cve_regressions: int
+    header_improvements: int
+    header_regressions: int
+    tls_status: str
+
+
+class ScanComparisonResponse(BaseModel):
+    previous_scan: ScanComparisonOption
+    latest_scan: ScanComparisonOption
+    summary: ComparisonSummary
+    severity_comparison: dict
+    vulnerability_changes: dict
+    owasp_comparison: List[dict]
+    cve_comparison: dict
+    header_comparison: dict
+    ssl_comparison: dict
+
+
+class SecurityTrendPoint(BaseModel):
+    scan_ref: str
+    target: str
+    date: str
+    security_score: int
+    risk_score: float
+
+
+class SeverityTrendPoint(BaseModel):
+    scan_ref: str
+    target: str
+    date: str
+    critical: int
+    high: int
+    medium: int
+    low: int
+    total: int
+
+
+class ScanTrendResponse(BaseModel):
+    has_sufficient_data: bool
+    message: Optional[str] = None
+    total_scans: int
+    security_trend: List[SecurityTrendPoint] = []
+    severity_trend: List[SeverityTrendPoint] = []
+
 
 
