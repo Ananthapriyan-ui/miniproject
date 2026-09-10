@@ -15,7 +15,6 @@ class User(Base):
     email = Column(String(254), unique=True, index=True, nullable=False)
     full_name = Column(String(150), nullable=False)
     hashed_password = Column(String(255), nullable=False)
-    role = Column(String(100), default="SecOps Engineer")
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=now_utc)
     last_login = Column(DateTime, nullable=True)

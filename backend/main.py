@@ -261,7 +261,6 @@ def register(user_in: schemas.UserCreate, db: Session = Depends(database.get_db)
         email=user_in.email,
         full_name=user_in.full_name,
         hashed_password=hashed_pwd,
-        role=user_in.role or "SecOps Lead",
     )
     db.add(db_user)
     db.commit()
@@ -270,7 +269,7 @@ def register(user_in: schemas.UserCreate, db: Session = Depends(database.get_db)
     access_token = security.create_access_token(data={"sub": db_user.email})
     refresh_token = security.create_refresh_token(data={"sub": db_user.email})
 
-    logger.info(f"New user registered: {db_user.email} | role={db_user.role}")
+    logger.info(f"New user registered: {db_user.email}")
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
@@ -776,7 +775,7 @@ def get_scan_by_ref(scan_ref: str, db: Session = Depends(database.get_db)):
 def delete_scan_record(
     scan_ref: str,
     db: Session = Depends(database.get_db),
-    current_user: models.User = Depends(security.require_roles(["Admin", "SecOps Lead"])),
+    current_user: models.User = Depends(security.get_current_user),
 ):
     scan = _get_scan_by_any_ref(scan_ref, db)
     if not scan:

@@ -3,7 +3,6 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Shield, Lock, Mail, User, ShieldCheck, UserPlus } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Select } from '../components/ui/Select';
 import { Card, CardContent } from '../components/ui/Card';
 import { GoogleIcon } from '../components/ui/GoogleIcon';
 import { useAuth } from '../context/AuthContext';
@@ -65,7 +64,6 @@ export const RegisterPage = () => {
     email: '',
     password: '',
     confirmPassword: '',
-    role: 'SecOps Lead',
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
@@ -107,7 +105,7 @@ export const RegisterPage = () => {
     }
 
     setIsLoading(true);
-    const result = await register(form.email, form.password, form.fullName, form.role);
+    const result = await register(form.email, form.password, form.fullName);
     setIsLoading(false);
 
     if (result.success) {
@@ -145,7 +143,8 @@ export const RegisterPage = () => {
               CLOUD<span className="text-cyan-400">VULN</span>
             </h1>
             <p className="text-xs font-mono tracking-widest text-slate-400 uppercase mt-1">
-              SecOps Operator Registration
+                            Cyber Vulnerability SCANNER &amp; REPORT GENERATOR 
+
             </p>
           </div>
         </div>
@@ -215,18 +214,6 @@ export const RegisterPage = () => {
                 error={errors.email}
                 required
                 autoComplete="email"
-              />
-
-              <Select
-                label="Security Role"
-                value={form.role}
-                onChange={handleChange('role')}
-                options={[
-                  { value: 'SecOps Lead',         label: 'SecOps Lead & Architect' },
-                  { value: 'SecOps Engineer',     label: 'SecOps Engineer' },
-                  { value: 'Analyst',             label: 'Security Analyst' },
-                  { value: 'Viewer',              label: 'Read-Only Viewer' },
-                ]}
               />
 
               <div>

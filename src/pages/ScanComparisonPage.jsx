@@ -257,7 +257,7 @@ export const ScanComparisonPage = () => {
                   <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 text-xs space-y-2 font-mono">
                     <div className="flex justify-between items-center">
                       <span className="text-slate-400">Target:</span>
-                      <span className="text-slate-200 font-bold truncate max-w-[200px]">{prevScanMeta.target}</span>
+                      <span className="text-slate-200 font-bold truncate max-w-50">{prevScanMeta.target}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-slate-400">Executed At:</span>
@@ -304,7 +304,7 @@ export const ScanComparisonPage = () => {
                   <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 text-xs space-y-2 font-mono">
                     <div className="flex justify-between items-center">
                       <span className="text-slate-400">Target:</span>
-                      <span className="text-slate-200 font-bold truncate max-w-[200px]">{latestScanMeta.target}</span>
+                      <span className="text-slate-200 font-bold truncate max-w-50">{latestScanMeta.target}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-slate-400">Executed At:</span>
@@ -879,19 +879,19 @@ export const ScanComparisonPage = () => {
           {activeTab === 'headers' && (
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card className="border-slate-800 p-4 bg-emerald-950/20 border-emerald-500/20">
+                <Card className="p-4 bg-emerald-950/20 border-emerald-500/20">
                   <span className="text-xs font-mono text-emerald-400 uppercase font-semibold">Fixed Headers</span>
                   <p className="text-2xl font-black text-emerald-400 mt-1">{comparison.header_comparison.fixed.length}</p>
                 </Card>
-                <Card className="border-slate-800 p-4 bg-rose-950/20 border-rose-500/20">
+                <Card className="p-4 bg-rose-950/20 border-rose-500/20">
                   <span className="text-xs font-mono text-rose-400 uppercase font-semibold">Newly Missing</span>
                   <p className="text-2xl font-black text-rose-400 mt-1">{comparison.header_comparison.newly_missing.length}</p>
                 </Card>
-                <Card className="border-slate-800 p-4 bg-amber-950/20 border-amber-500/20">
+                <Card className="p-4 bg-amber-950/20 border-amber-500/20">
                   <span className="text-xs font-mono text-amber-400 uppercase font-semibold">Still Missing</span>
                   <p className="text-2xl font-black text-amber-400 mt-1">{comparison.header_comparison.still_missing.length}</p>
                 </Card>
-                <Card className="border-slate-800 p-4 bg-cyan-950/20 border-cyan-500/20">
+                <Card className="p-4 bg-cyan-950/20 border-cyan-500/20">
                   <span className="text-xs font-mono text-cyan-400 uppercase font-semibold">Remained Secure</span>
                   <p className="text-2xl font-black text-cyan-400 mt-1">{comparison.header_comparison.remained_secure.length}</p>
                 </Card>

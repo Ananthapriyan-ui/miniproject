@@ -12,7 +12,6 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str
     full_name: str
-    role: Optional[str] = "SecOps Lead"
 
     @field_validator("password")
     @classmethod
@@ -35,14 +34,6 @@ class UserCreate(BaseModel):
             raise ValueError("Full name must be between 2 and 150 characters")
         return v
 
-    @field_validator("role")
-    @classmethod
-    def validate_role(cls, v: Optional[str]) -> str:
-        allowed = {"Admin", "SecOps Lead", "SecOps Engineer", "Analyst", "Viewer"}
-        if v and v not in allowed:
-            raise ValueError(f"Role must be one of: {', '.join(sorted(allowed))}")
-        return v or "SecOps Lead"
-
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -60,7 +51,6 @@ class UserResponse(BaseModel):
     id: int
     email: str
     full_name: str
-    role: str
     is_active: bool
     created_at: datetime
 

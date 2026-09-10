@@ -137,7 +137,7 @@ export const Sidebar = ({ collapsed, setCollapsed }) => {
                   {user?.full_name || 'SecOps User'}
                 </span>
                 <span className="text-[10px] text-slate-400 font-mono truncate">
-                  {user?.role || 'Operator'}
+                  {user?.email || 'operator@cloudvuln.io'}
                 </span>
               </div>
             )}

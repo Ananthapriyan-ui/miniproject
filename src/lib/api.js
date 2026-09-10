@@ -151,10 +151,10 @@ export const api = {
       body: JSON.stringify({ email, password }),
     }),
 
-  register: (email, password, full_name, role) =>
+  register: (email, password, full_name) =>
     apiFetch('/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ email, password, full_name, role }),
+      body: JSON.stringify({ email, password, full_name }),
     }),
 
   me: () => apiFetch('/auth/me', {}, true, 60_000),

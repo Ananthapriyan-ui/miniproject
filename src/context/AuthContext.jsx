@@ -7,7 +7,7 @@ const AuthContext = createContext(null);
 async function fetchProfile(userId) {
   const { data, error } = await supabase
     .from('profiles')
-    .select('full_name, role, is_active, created_at')
+    .select('full_name, is_active, created_at')
     .eq('id', userId)
     .single();
 
@@ -29,10 +29,6 @@ function buildUser(supabaseUser, profile) {
       supabaseUser.user_metadata?.name ||
       supabaseUser.email?.split('@')[0] ||
       'SecOps Operator',
-    role:
-      profile?.role ||
-      supabaseUser.user_metadata?.role ||
-      'SecOps Lead',
     avatar_url:
       supabaseUser.user_metadata?.avatar_url ||
       supabaseUser.user_metadata?.picture ||
@@ -65,7 +61,6 @@ export const AuthProvider = ({ children }) => {
             await supabase.from('profiles').upsert({
               id: session.user.id,
               full_name: defaultName,
-              role: 'SecOps Lead',
             });
             profile = await fetchProfile(session.user.id);
           } catch (e) {
@@ -95,7 +90,6 @@ export const AuthProvider = ({ children }) => {
             await supabase.from('profiles').upsert({
               id: session.user.id,
               full_name: defaultName,
-              role: 'SecOps Lead',
             });
             profile = await fetchProfile(session.user.id);
           } catch (e) {
@@ -154,12 +148,12 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   // ─── Register ─────────────────────────────────────────────────────
-  const register = useCallback(async (email, password, fullName, role = 'SecOps Lead') => {
+  const register = useCallback(async (email, password, fullName) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { full_name: fullName, role }, // stored in raw_user_meta_data
+        data: { full_name: fullName }, // stored in raw_user_meta_data
       },
     });
 
@@ -171,10 +165,9 @@ export const AuthProvider = ({ children }) => {
       await supabase.from('profiles').upsert({
         id: data.user.id,
         full_name: fullName,
-        role,
       });
 
-      const appUser = buildUser(data.user, { full_name: fullName, role });
+      const appUser = buildUser(data.user, { full_name: fullName });
       setUser(appUser);
       return { success: true, user: appUser };
     }
@@ -192,7 +185,6 @@ export const AuthProvider = ({ children }) => {
       id: 'demo-99',
       email: 'secops.lead@cloudvuln.io',
       full_name: 'Alex Mercer',
-      role: 'SecOps Lead',
       is_active: true,
       created_at: new Date().toISOString(),
       isDemo: true,

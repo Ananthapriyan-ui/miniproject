@@ -146,7 +146,7 @@ export const DashboardPage = () => {
         <div className="space-y-1">
           <div className="flex items-center gap-2 flex-wrap">
             <Badge variant="cyan" dot>PROD SHIELD ACTIVE</Badge>
-            <span className="text-xs text-slate-400 font-mono">SQLite Live Sync</span>
+            <span className="text-xs text-slate-400 font-mono"></span>
           </div>
           <h2 className="text-xl sm:text-2xl font-black text-slate-100">
             Welcome back, <span className="text-cyan-400">{user?.full_name?.split(' ')[0] || 'Operator'}</span>

@@ -27,7 +27,6 @@ export const ProfilePage = () => {
 
   const [name, setName] = useState(user?.full_name || 'SecOps Operator');
   const [email, setEmail] = useState(user?.email || 'operator@cloudvuln.io');
-  const [role] = useState(user?.role || 'Lead Security Architect & SecOps Admin');
 
   const [copiedKey, setCopiedKey] = useState(null);
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
@@ -95,7 +94,6 @@ export const ProfilePage = () => {
 
             <div>
               <h3 className="text-lg font-bold text-slate-100">{name}</h3>
-              <p className="text-xs font-mono text-cyan-400 mt-0.5">{role}</p>
             </div>
 
             <div className="flex items-center justify-center gap-2 pt-2">
