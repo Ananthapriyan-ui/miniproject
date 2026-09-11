@@ -9,10 +9,12 @@ import sqlite3
 import datetime
 import logging
 
+from typing import Optional
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 logger = logging.getLogger("BackupUtility")
 
-def run_backup(db_path: str = None, backup_dir: str = None, keep_count: int = 7):
+def run_backup(db_path: Optional[str] = None, backup_dir: Optional[str] = None, keep_count: int = 7):
     """
     Performs an online atomic backup of the SQLite database without locking active transactions.
     """

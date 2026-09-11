@@ -92,7 +92,7 @@ export const ReportPage = () => {
     addToast(`Generating and downloading HTML report...`, 'info');
     try {
       const downloadUrl = api.getReportDownloadUrl(reportMeta.scanId, format);
-      const token = localStorage.getItem('cloudvuln_token');
+      const token = localStorage.getItem('cloudvuln_access_token');
       const res = await fetch(downloadUrl, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });

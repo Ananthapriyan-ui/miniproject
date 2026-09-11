@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 from jose import JWTError, jwt, ExpiredSignatureError  # type: ignore[import-untyped]
 from passlib.context import CryptContext  # type: ignore[import-untyped]
@@ -121,32 +122,6 @@ def get_current_user(
         logger.warning(f"Auth attempt for non-existent/inactive user: {email}")
         raise credentials_exception
     return user
-
-
-# ──────────────────────────────────────────────
-# Role-Based Access Control (RBAC)
-# ──────────────────────────────────────────────
-
-def require_roles(allowed_roles: List[str]) -> Callable:
-    """Dependency factory for RBAC. Admin role always passes."""
-    def role_checker(current_user: models.User = Depends(get_current_user)) -> models.User:
-        user_role = (current_user.role or "").strip()
-        allowed_normalized = [r.strip() for r in allowed_roles]
-
-        is_admin = user_role.lower() in ("admin", "secops lead")
-        if user_role not in allowed_normalized and not is_admin:
-            logger.warning(
-                f"RBAC denied: user={current_user.email} role={current_user.role} "
-                f"required_roles={allowed_roles}"
-            )
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Access denied. Required role(s): {', '.join(allowed_roles)}. "
-                       f"Your role: {current_user.role}",
-            )
-        return current_user
-
-    return role_checker
 
 
 # ──────────────────────────────────────────────

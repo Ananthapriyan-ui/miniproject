@@ -1,206 +1,225 @@
+/**
+ * AuthContext — Flask JWT Authentication
+ *
+ * Auth flow:
+ *   Register  → POST /api/auth/register → stores access_token + refresh_token in localStorage
+ *   Login     → POST /api/auth/login    → stores access_token + refresh_token in localStorage
+ *   Restore   → GET  /api/auth/me       → restores session on page reload using stored token
+ *   Logout    → POST /api/auth/logout   → clears localStorage tokens
+ *
+ * Token keys in localStorage:
+ *   cloudvuln_access_token
+ *   cloudvuln_refresh_token
+ */
+
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 
 const AuthContext = createContext(null);
 
-// ─── Helper: fetch or create the user's profile row ───────────────
-async function fetchProfile(userId) {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('full_name, is_active, created_at')
-    .eq('id', userId)
-    .single();
+const BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
-  if (error && error.code !== 'PGRST116') {
-    // PGRST116 = row not found (profile not yet created by trigger)
-    console.error('Profile fetch error:', error.message);
-  }
-  return data || null;
+// ─── Token helpers ────────────────────────────────────────────────
+export const TOKEN_KEY = 'cloudvuln_access_token';
+export const REFRESH_KEY = 'cloudvuln_refresh_token';
+
+export function getStoredToken() {
+  return localStorage.getItem(TOKEN_KEY);
 }
 
-// ─── Normalise Supabase session → app user object ─────────────────
-function buildUser(supabaseUser, profile) {
+export function getStoredRefreshToken() {
+  return localStorage.getItem(REFRESH_KEY);
+}
+
+function storeTokens(access_token, refresh_token) {
+  if (access_token) localStorage.setItem(TOKEN_KEY, access_token);
+  if (refresh_token) localStorage.setItem(REFRESH_KEY, refresh_token);
+}
+
+function clearTokens() {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(REFRESH_KEY);
+  localStorage.removeItem('cloudvuln_demo');
+}
+
+// ─── Raw fetch helpers (used before api.js is initialized) ────────
+async function authFetch(endpoint, body) {
+  const res = await fetch(`${BASE_URL}${endpoint}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, data };
+}
+
+async function authGetMe(token) {
+  const res = await fetch(`${BASE_URL}/auth/me`, {
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  if (!res.ok) return null;
+  return res.json().catch(() => null);
+}
+
+// ─── Normalise user object ──────────────────────────────────
+function buildUser(userData) {
   return {
-    id: supabaseUser.id,
-    email: supabaseUser.email,
-    full_name:
-      profile?.full_name ||
-      supabaseUser.user_metadata?.full_name ||
-      supabaseUser.user_metadata?.name ||
-      supabaseUser.email?.split('@')[0] ||
-      'SecOps Operator',
-    avatar_url:
-      supabaseUser.user_metadata?.avatar_url ||
-      supabaseUser.user_metadata?.picture ||
-      null,
-    is_active: profile?.is_active ?? true,
-    created_at: profile?.created_at || supabaseUser.created_at,
+    id: userData.id,
+    email: userData.email,
+    full_name: userData.full_name || userData.user_metadata?.full_name || userData.email?.split('@')[0] || 'User',
+    is_active: userData.is_active ?? true,
+    created_at: userData.created_at,
   };
 }
+
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // ─── Restore session on mount & listen for auth changes ───────────
+  // ─── Restore session on mount & Listen to Supabase Auth ──────────────────
   useEffect(() => {
     let mounted = true;
 
-    // Initial session check
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!mounted) return;
-      if (session?.user) {
-        let profile = await fetchProfile(session.user.id);
-        if (!profile) {
-          try {
-            const defaultName =
-              session.user.user_metadata?.full_name ||
-              session.user.user_metadata?.name ||
-              session.user.email?.split('@')[0] ||
-              'SecOps Operator';
-            await supabase.from('profiles').upsert({
-              id: session.user.id,
-              full_name: defaultName,
-            });
-            profile = await fetchProfile(session.user.id);
-          } catch (e) {
-            console.warn('Could not auto-create profile:', e);
+    async function restoreSession() {
+      // 1. Check Flask JWT local token first
+      const token = getStoredToken();
+      if (token) {
+        try {
+          const userData = await authGetMe(token);
+          if (mounted && userData) {
+            setUser(buildUser(userData));
+            setLoading(false);
+            return;
           }
+        } catch (err) {
+          console.error('Session restore error:', err);
         }
-        setUser(buildUser(session.user, profile));
-      }
-      setLoading(false);
-    });
-
-    // Real-time auth state listener (sign-in, sign-out, token-refresh, OAuth callback)
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!mounted) return;
-
-      if (session?.user) {
-        let profile = await fetchProfile(session.user.id);
-        if (!profile) {
-          try {
-            const defaultName =
-              session.user.user_metadata?.full_name ||
-              session.user.user_metadata?.name ||
-              session.user.email?.split('@')[0] ||
-              'SecOps Operator';
-            await supabase.from('profiles').upsert({
-              id: session.user.id,
-              full_name: defaultName,
-            });
-            profile = await fetchProfile(session.user.id);
-          } catch (e) {
-            console.warn('Could not auto-create profile:', e);
-          }
-        }
-        setUser(buildUser(session.user, profile));
-      } else {
-        setUser(null);
       }
 
-      // Only clear loading if it was still true (avoids a double-set on mount)
-      setLoading(false);
-    });
+      // 2. Check Supabase session (e.g. after Google OAuth redirect)
+      if (supabase) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (mounted && session?.user) {
+            setUser(buildUser(session.user));
+            setLoading(false);
+            return;
+          }
+        } catch (err) {
+          console.error('Supabase session check error:', err);
+        }
+      }
+
+      if (mounted) setLoading(false);
+    }
+
+    restoreSession();
+
+    // Listen for Supabase auth changes (OAuth callbacks)
+    let authListener = null;
+    if (supabase) {
+      const { data } = supabase.auth.onAuthStateChange((event, session) => {
+        if (session?.user) {
+          setUser(buildUser(session.user));
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
+        }
+      });
+      authListener = data?.subscription;
+    }
 
     return () => {
       mounted = false;
-      subscription.unsubscribe();
+      if (authListener) authListener.unsubscribe();
     };
   }, []);
 
-  // ─── Email/Password Login ─────────────────────────────────────────
+
+  // ─── Login ────────────────────────────────────────────────────────
   const login = useCallback(async (email, password) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const { ok, data } = await authFetch('/auth/login', { email, password });
 
-    if (error) return { success: false, error: error.message };
+      if (!ok) {
+        return { success: false, error: data.message || data.detail || 'Invalid email or password' };
+      }
 
-    const profile = await fetchProfile(data.user.id);
-    const appUser = buildUser(data.user, profile);
-    setUser(appUser);
-    return { success: true, user: appUser };
+      storeTokens(data.access_token, data.refresh_token);
+      const appUser = buildUser(data.user);
+      setUser(appUser);
+      return { success: true, user: appUser };
+    } catch (err) {
+      return { success: false, error: err.message || 'Network error. Check if the backend is running.' };
+    }
   }, []);
 
-  // ─── Google OAuth Login ───────────────────────────────────────────
+  // ─── Google OAuth Login via Supabase ─────────────────────────────
   const loginWithGoogle = useCallback(async () => {
+    if (!supabase) {
+      return {
+        success: false,
+        error: 'Supabase client is not configured. Please add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your .env file.',
+      };
+    }
+
     try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/`,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          },
+          redirectTo: window.location.origin,
         },
       });
 
-      if (error) return { success: false, error: error.message };
-      return { success: true, data };
+      if (error) throw error;
+      return { success: true };
     } catch (err) {
-      return { success: false, error: err.message || 'Failed to initiate Google sign-in' };
+      return { success: false, error: err.message || 'Google OAuth sign-in failed.' };
     }
   }, []);
 
-  // ─── Register ─────────────────────────────────────────────────────
+  // ─── Register ────────────────────────────────────────────────────
   const register = useCallback(async (email, password, fullName) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: fullName }, // stored in raw_user_meta_data
-      },
-    });
-
-    if (error) return { success: false, error: error.message };
-
-    // If email confirmation is disabled in Supabase, user is auto-logged in
-    if (data.user && data.session) {
-      // Upsert profile manually in case the DB trigger hasn't fired yet
-      await supabase.from('profiles').upsert({
-        id: data.user.id,
+    try {
+      const { ok, data } = await authFetch('/auth/register', {
+        email,
+        password,
         full_name: fullName,
       });
 
-      const appUser = buildUser(data.user, { full_name: fullName });
+      if (!ok) {
+        return { success: false, error: data.message || data.detail || 'Registration failed' };
+      }
+
+      storeTokens(data.access_token, data.refresh_token);
+      const appUser = buildUser(data.user);
       setUser(appUser);
       return { success: true, user: appUser };
+    } catch (err) {
+      return { success: false, error: err.message || 'Network error. Check if the backend is running.' };
     }
-
-    // Email confirmation required — user not yet signed in
-    return {
-      success: false,
-      error: 'Please check your email to confirm your account before signing in.',
-    };
   }, []);
 
-  // ─── Demo login (local mock — no Supabase call) ───────────────────
-  const demoLogin = useCallback(() => {
-    const demoUser = {
-      id: 'demo-99',
-      email: 'secops.lead@cloudvuln.io',
-      full_name: 'Alex Mercer',
-      is_active: true,
-      created_at: new Date().toISOString(),
-      isDemo: true,
-    };
-    setUser(demoUser);
-    // Stash a demo flag so api.js can skip Supabase token retrieval
-    localStorage.setItem('cloudvuln_demo', '1');
-    return { success: true, user: demoUser };
-  }, []);
 
   // ─── Logout ───────────────────────────────────────────────────────
   const logout = useCallback(async () => {
-    localStorage.removeItem('cloudvuln_demo');
-    await supabase.auth.signOut();
+    const token = getStoredToken();
+    if (token) {
+      fetch(`${BASE_URL}/auth/logout`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {});
+    }
+    if (supabase) {
+      supabase.auth.signOut().catch(() => {});
+    }
+    clearTokens();
     setUser(null);
   }, []);
+
 
   return (
     <AuthContext.Provider
@@ -211,7 +230,6 @@ export const AuthProvider = ({ children }) => {
         login,
         loginWithGoogle,
         register,
-        demoLogin,
         logout,
       }}
     >
@@ -225,4 +243,3 @@ export const useAuth = () => {
   if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };
-

@@ -247,7 +247,7 @@ def _build_cve_section(cve_findings: List[Dict]) -> str:
             f'<tr>'
             f'<td style="padding:10px 12px;font-family:monospace;font-weight:bold;color:#f87171;border-bottom:1px solid #1e293b;font-size:12px;">{cve_id}</td>'
             f'<td style="padding:10px 12px;border-bottom:1px solid #1e293b;"><span style="display:inline-block;padding:3px 10px;border-radius:9999px;font-size:11px;font-weight:700;{sevstyle}">{_esc(severity)}</span></td>'
-            f'<td style="padding:10px 12px;font-family:monospace;font-weight:bold;color:#fbbf24;border-bottom:1px solid #1e293b;font-size:13px;">{_esc(str(cvss))}</td>'
+            f'<td style="padding:10px 12px;font-family:monospace;font-weight:bold;color:#fbbf24;border-bottom:1px solid #1e293b;font-size:13px;">{_esc(cvss)}</td>'
             f'<td style="padding:10px 12px;color:#cbd5e1;font-size:12px;max-width:300px;border-bottom:1px solid #1e293b;">{description}</td>'
             f'<td style="padding:10px 12px;color:#64748b;font-size:12px;border-bottom:1px solid #1e293b;">{published}</td>'
             f'<td style="padding:10px 12px;border-bottom:1px solid #1e293b;">{ref_cell}</td>'
@@ -365,7 +365,7 @@ def generate_html_report(scan_data: Dict[str, Any]) -> str:
     recs_html = _build_recommendations_section(recommendations) if recommendations else ""
 
     risk_color = _risk_color(risk_score_raw)
-    generated_at = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+    generated_at = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     status_border = "#ef4444" if "CRITICAL" in status else ("#f97316" if "HIGH" in status else ("#f59e0b" if "MEDIUM" in status else "#10b981"))
 
     status_badge = (

@@ -68,7 +68,7 @@ export const ProfilePage = () => {
       <div>
         <h2 className="text-xl sm:text-2xl font-black text-slate-100 flex items-center gap-2">
           <User className="w-7 h-7 text-cyan-400" />
-          <span>SecOps Operator Profile</span>
+          <span>User Profile</span>
         </h2>
         <p className="text-xs sm:text-sm text-slate-400">
           Manage credentials, hardware MFA keys, and API access tokens for automation scripts.
@@ -98,7 +98,6 @@ export const ProfilePage = () => {
 
             <div className="flex items-center justify-center gap-2 pt-2">
               <Badge variant="cyan" dot>MFA ENABLED</Badge>
-              <Badge variant="purple">SECOPS-OPERATOR</Badge>
             </div>
 
             <div className="pt-4 border-t border-slate-800 space-y-3 text-left">

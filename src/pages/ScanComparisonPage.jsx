@@ -135,7 +135,7 @@ export const ScanComparisonPage = () => {
     addToast(`Generating and downloading ${format.toUpperCase()} comparison report...`, 'info');
     try {
       const url = api.getComparisonDownloadUrl(prevRef, latestRef, format);
-      const token = localStorage.getItem('cloudvuln_token');
+      const token = localStorage.getItem('cloudvuln_access_token');
       const res = await fetch(url, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
@@ -167,8 +167,6 @@ export const ScanComparisonPage = () => {
       <div className="p-6 rounded-2xl bg-linear-to-r from-slate-900 via-cyan-950/40 to-slate-900 border border-cyan-500/30 shadow-[0_0_30px_rgba(0,243,255,0.08)] flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <Badge variant="cyan" dot>DELTA POSTURE ENGINE</Badge>
-            <span className="text-xs font-mono text-slate-400">Deterministic Database Comparison</span>
           </div>
           <h2 className="text-xl sm:text-2xl font-black text-slate-100 flex items-center gap-2.5">
             <GitCompare className="w-7 h-7 text-cyan-400" />

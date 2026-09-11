@@ -1,5 +1,5 @@
 import React from 'react';
-import { Shield, Terminal, Lock } from 'lucide-react';
+import { Shield } from 'lucide-react';
 
 export const Footer = () => {
   return (
@@ -13,17 +13,6 @@ export const Footer = () => {
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" /> Security Engine Active
           </span>
         </div>
-
-        <div className="flex items-center gap-6 text-slate-400">
-          <a href="#privacy" className="hover:text-cyan-400 transition-colors">Privacy Policy</a>
-          <a href="#compliance" className="hover:text-cyan-400 transition-colors flex items-center gap-1">
-            <Lock className="w-3 h-3 text-cyan-400" /> SOC2 & CIS Benchmark
-          </a>
-          <a href="#docs" className="hover:text-cyan-400 transition-colors flex items-center gap-1">
-            <Terminal className="w-3 h-3 text-cyan-400" /> API Docs
-          </a>
-        </div>
-
         <div className="text-slate-500 font-mono text-[11px]">
           © 2026 CloudVuln Security Inc. All rights reserved.
         </div>

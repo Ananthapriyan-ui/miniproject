@@ -50,7 +50,6 @@ export const Navbar = ({ collapsed }) => {
             <span>{currentTitle}</span>
           </h1>
           <p className="text-[11px] font-mono text-slate-400">
-            System Posture: <span className="text-emerald-400 font-semibold">ACTIVE DEFENSE</span>
           </p>
         </div>
       </div>
@@ -64,12 +63,6 @@ export const Navbar = ({ collapsed }) => {
             icon={Search}
             className="py-1.5! text-xs bg-slate-900/80 border-slate-800 focus:border-cyan-500"
           />
-        </div>
-
-        {/* Live Engine Status */}
-        <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-xs text-slate-300">
-          <Activity className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-          <span className="font-mono text-[11px]">SECURITY ENGINE: ONLINE</span>
         </div>
 
         {/* Notification Bell Dropdown */}

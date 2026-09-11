@@ -3,7 +3,7 @@ import uuid
 import logging
 import logging.config
 from collections import defaultdict
-from typing import List
+from typing import List, Optional
 
 from fastapi import FastAPI, Depends, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,6 +17,7 @@ import security
 import database
 import analyzer
 import scan_comparator
+import report_generator
 import config
 from seed_data import seed_database
 
@@ -299,7 +300,7 @@ def login(user_credentials: schemas.UserLogin, db: Session = Depends(database.ge
 
     # Update last_login
     import datetime
-    user.last_login = datetime.datetime.utcnow()
+    user.last_login = datetime.datetime.now(datetime.timezone.utc)
     db.commit()
 
     access_token = security.create_access_token(data={"sub": user.email})
@@ -554,8 +555,8 @@ def create_scan_record(
 
 @app.get("/api/scans", response_model=List[schemas.ScanResponse])
 def get_scans_history(
-    search: str = None,
-    status_filter: str = None,
+    search: Optional[str] = None,
+    status_filter: Optional[str] = None,
     sort_by: str = "date_desc",
     limit: int = 100,
     offset: int = 0,
@@ -848,7 +849,6 @@ def get_report_by_scan_ref(scan_ref: str, db: Session = Depends(database.get_db)
 
 @app.get("/api/reports/{scan_ref}/html")
 def get_report_html(scan_ref: str, db: Session = Depends(database.get_db)):
-    import report_generator
     import json
 
     scan = _get_scan_by_any_ref(scan_ref, db)
@@ -893,7 +893,6 @@ def download_report_file(
     format: str = "html",
     db: Session = Depends(database.get_db),
 ):
-    import report_generator
     import json
 
     scan = _get_scan_by_any_ref(scan_ref, db)

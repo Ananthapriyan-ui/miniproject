@@ -145,7 +145,6 @@ export const DashboardPage = () => {
       <div className="p-6 rounded-2xl bg-linear-to-r from-slate-900 via-cyan-950/40 to-slate-900 border border-cyan-500/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-[0_0_30px_rgba(0,243,255,0.08)]">
         <div className="space-y-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <Badge variant="cyan" dot>PROD SHIELD ACTIVE</Badge>
             <span className="text-xs text-slate-400 font-mono"></span>
           </div>
           <h2 className="text-xl sm:text-2xl font-black text-slate-100">

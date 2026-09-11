@@ -28,7 +28,7 @@ export const Sidebar = ({ collapsed, setCollapsed }) => {
     { label: 'Cloud Scanner', path: '/scanner', icon: Radar, badge: 'LIVE' },
     { label: 'Scan History', path: '/history', icon: History },
     { label: 'Scan Comparison', path: '/compare', icon: GitCompare, badge: 'NEW' },
-    { label: 'Security Profile', path: '/profile', icon: User },
+    { label: 'Profile', path: '/profile', icon: User },
     { label: 'Settings', path: '/settings', icon: Settings },
   ];
 
@@ -64,9 +64,6 @@ export const Sidebar = ({ collapsed, setCollapsed }) => {
             <div className="flex flex-col">
               <span className="font-extrabold text-base tracking-wider text-slate-100 flex items-center gap-1.5">
                 CLOUD<span className="text-cyan-400">VULN</span>
-              </span>
-              <span className="text-[10px] font-mono tracking-widest text-slate-500 uppercase">
-                SecOps Platform
               </span>
             </div>
           )}
@@ -119,7 +116,7 @@ export const Sidebar = ({ collapsed, setCollapsed }) => {
             <span>Target Shield Active</span>
           </div>
           <p className="text-[11px] text-slate-400">
-            Continuous vulnerability &amp; posture assessment ready.
+             CLOUD VULNERABILITY SCANNER &amp; REPORT GENERATOR READY.
           </p>
         </div>
       )}

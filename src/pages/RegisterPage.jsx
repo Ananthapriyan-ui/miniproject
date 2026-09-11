@@ -117,7 +117,7 @@ export const RegisterPage = () => {
     }
   };
 
-  const handleGoogleSignUp = async () => {
+  const handleGoogleLogin = async () => {
     setIsGoogleLoading(true);
     setServerError('');
     const result = await loginWithGoogle();
@@ -143,8 +143,7 @@ export const RegisterPage = () => {
               CLOUD<span className="text-cyan-400">VULN</span>
             </h1>
             <p className="text-xs font-mono tracking-widest text-slate-400 uppercase mt-1">
-                            Cyber Vulnerability SCANNER &amp; REPORT GENERATOR 
-
+              CLOUD VULNERABILITY SCANNER &amp; REPORT GENERATOR
             </p>
           </div>
         </div>
@@ -156,7 +155,7 @@ export const RegisterPage = () => {
                 <UserPlus className="w-3.5 h-3.5 text-cyan-400" /> Create Account
               </span>
               <span className="text-[11px] font-mono text-emerald-400 flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5" /> Supabase OAuth
+                <ShieldCheck className="w-3.5 h-3.5" /> Secured
               </span>
             </div>
 
@@ -166,26 +165,23 @@ export const RegisterPage = () => {
               </div>
             )}
 
-            {/* Google OAuth Quick Register Button */}
-            <button
-              id="google-signup"
+            {/* Google OAuth Button */}
+            <Button
+              id="google-register-btn"
               type="button"
-              onClick={handleGoogleSignUp}
-              disabled={isLoading || isGoogleLoading}
-              className="w-full py-2.5 px-4 bg-[#0f172a] hover:bg-[#1e293b] border border-slate-700 hover:border-cyan-500/60 rounded-xl text-slate-200 font-semibold text-sm flex items-center justify-center gap-3 transition-all duration-200 shadow-[0_2px_10px_rgba(0,0,0,0.3)] hover:shadow-[0_0_20px_rgba(0,243,255,0.15)] disabled:opacity-50 disabled:cursor-not-allowed group cursor-pointer"
+              variant="secondary"
+              icon={GoogleIcon}
+              className="w-full py-3 rounded-full bg-slate-800/80 hover:bg-slate-700/80 border-slate-700 text-slate-200"
+              onClick={handleGoogleLogin}
+              isLoading={isGoogleLoading}
             >
-              {isGoogleLoading ? (
-                <div className="w-5 h-5 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <GoogleIcon className="w-5 h-5 transition-transform duration-200 group-hover:scale-110" />
-              )}
-              <span>{isGoogleLoading ? 'Connecting to Google…' : 'Sign up with Google'}</span>
-            </button>
+              Continue with Google
+            </Button>
 
-            <div className="relative flex items-center justify-center">
-              <div className="border-t border-slate-800 w-full" />
-              <span className="bg-[#0f172a] px-3 text-[10px] uppercase font-mono text-slate-500 relative z-10 whitespace-nowrap">
-                OR REGISTER WITH EMAIL
+            <div className="relative flex items-center justify-center my-2">
+              <div className="border-t border-slate-800 w-full"></div>
+              <span className="bg-slate-900/90 px-3 text-[11px] font-mono text-slate-400 uppercase tracking-wider absolute">
+                Or Register With Email
               </span>
             </div>
 
@@ -258,7 +254,7 @@ export const RegisterPage = () => {
                 isLoading={isLoading}
                 icon={UserPlus}
               >
-                {isLoading ? 'Creating Account…' : 'Create Account with Email'}
+                {isLoading ? 'Creating Account…' : 'Create Account'}
               </Button>
             </form>
 
@@ -274,4 +270,3 @@ export const RegisterPage = () => {
     </div>
   );
 };
-

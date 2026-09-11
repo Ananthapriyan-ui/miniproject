@@ -204,9 +204,6 @@ class VulnerabilityResponse(BaseModel):
 class ScanDetailResponse(ScanResponse):
     vulnerabilities: List[VulnerabilityResponse] = []
 
-    class Config:
-        from_attributes = True
-
 
 # ──────────────────────────────────────────────
 # Activity Schema
