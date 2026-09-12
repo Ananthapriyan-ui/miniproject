@@ -9,7 +9,10 @@ import config
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 db_url = config.settings.DATABASE_URL or os.getenv("DATABASE_URL")
 if not db_url:
-    db_url = f"sqlite:///{os.path.join(BASE_DIR, 'cloudvuln.db')}"
+    if os.environ.get("VERCEL") == "1":
+        db_url = "sqlite:////tmp/cloudvuln.db"
+    else:
+        db_url = f"sqlite:///{os.path.join(BASE_DIR, 'cloudvuln.db')}"
 
 # Ensure parent directory exists for file-based SQLite database
 if db_url.startswith("sqlite:///"):

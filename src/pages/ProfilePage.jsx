@@ -2,22 +2,13 @@ import React, { useState } from 'react';
 import {
   User,
   ShieldCheck,
-  Key,
-  Lock,
   Mail,
-  Copy,
-  Check,
-  Plus,
-  Trash2,
-  Clock,
-  Shield,
   Smartphone
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Badge } from '../components/ui/Badge';
-import { Modal } from '../components/ui/Modal';
 import { useToast } from '../components/ui/Toast';
 import { useAuth } from '../context/AuthContext';
 
@@ -25,42 +16,8 @@ export const ProfilePage = () => {
   const { addToast } = useToast();
   const { user } = useAuth();
 
-  const [name, setName] = useState(user?.full_name || 'SecOps Operator');
+  const [name, setName] = useState(user?.full_name || 'cloud operator');
   const [email, setEmail] = useState(user?.email || 'operator@cloudvuln.io');
-
-  const [copiedKey, setCopiedKey] = useState(null);
-  const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
-  const [newKeyName, setNewKeyName] = useState('');
-
-  const [apiKeys, setApiKeys] = useState([]);
-
-  const handleCopyKey = (keyText, id) => {
-    navigator.clipboard.writeText(keyText);
-    setCopiedKey(id);
-    addToast('API key copied to clipboard', 'info');
-    setTimeout(() => setCopiedKey(null), 2000);
-  };
-
-  const handleGenerateKey = (e) => {
-    if (e && e.preventDefault) e.preventDefault();
-    if (!newKeyName.trim()) return;
-    const newEntry = {
-      id: Date.now(),
-      name: newKeyName,
-      key: `cv_live_${Math.random().toString(36).substring(2, 12)}...${Math.random().toString(36).substring(2, 6)}`,
-      created: new Date().toISOString().split('T')[0],
-      lastUsed: 'Never'
-    };
-    setApiKeys([...apiKeys, newEntry]);
-    setNewKeyName('');
-    setIsGenerateModalOpen(false);
-    addToast('New SecOps API Access Key generated!', 'success');
-  };
-
-  const handleDeleteKey = (id) => {
-    setApiKeys(apiKeys.filter((k) => k.id !== id));
-    addToast('API key revoked', 'warning');
-  };
 
   return (
     <div className="space-y-6">
@@ -71,7 +28,7 @@ export const ProfilePage = () => {
           <span>User Profile</span>
         </h2>
         <p className="text-xs sm:text-sm text-slate-400">
-          Manage credentials, hardware MFA keys, and API access tokens for automation scripts.
+          Manage profile details, security settings, and multi-factor authentication.
         </p>
       </div>
 
@@ -114,65 +71,8 @@ export const ProfilePage = () => {
           </CardContent>
         </Card>
 
-        {/* Right Column: API Keys & Security Management */}
+        {/* Right Column: Security Management */}
         <div className="lg:col-span-2 space-y-6">
-          {/* API Access Tokens */}
-          <Card>
-            <CardHeader action={
-              <Button
-                size="sm"
-                variant="primary"
-                icon={Plus}
-                onClick={() => setIsGenerateModalOpen(true)}
-              >
-                Generate API Key
-              </Button>
-            }>
-              <CardTitle icon={Key} subtitle="Tokens for CI/CD pipelines & scanner CLI">
-                API Access Tokens
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {apiKeys.length === 0 ? (
-                <div className="p-6 text-center text-xs text-slate-400 border border-dashed border-slate-800 rounded-xl space-y-1">
-                  <p className="font-semibold text-slate-300">No active API tokens</p>
-                  <p className="text-[11px] text-slate-500">Generate an API key for headless CLI scanning and CI/CD security pipelines.</p>
-                </div>
-              ) : (
-                apiKeys.map((item) => (
-                  <div
-                    key={item.id}
-                    className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs"
-                  >
-                    <div className="space-y-1">
-                      <p className="font-semibold text-slate-200">{item.name}</p>
-                      <p className="font-mono text-cyan-400 text-[11px]">{item.key}</p>
-                      <p className="text-[10px] text-slate-500 font-mono">
-                        Created: {item.created} • Last used: {item.lastUsed}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 self-end sm:self-center">
-                      <button
-                        onClick={() => handleCopyKey(item.key, item.id)}
-                        className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-cyan-400 transition-colors"
-                        title="Copy Key"
-                      >
-                        {copiedKey === item.id ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                      </button>
-                      <button
-                        onClick={() => handleDeleteKey(item.id)}
-                        className="p-2 rounded-lg bg-slate-800 hover:bg-rose-900/50 text-slate-400 hover:text-rose-400 transition-colors"
-                        title="Revoke Key"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-
           {/* MFA Hardware Keys */}
           <Card>
             <CardHeader>
@@ -195,34 +95,6 @@ export const ProfilePage = () => {
           </Card>
         </div>
       </div>
-
-      {/* Generate API Key Modal */}
-      <Modal
-        isOpen={isGenerateModalOpen}
-        onClose={() => setIsGenerateModalOpen(false)}
-        title="Generate SecOps API Key"
-        subtitle="Tokens allow programmatic access to CloudVuln CLI and REST APIs."
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setIsGenerateModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="primary" type="submit" form="generate-key-form">
-              Generate Key
-            </Button>
-          </>
-        }
-      >
-        <form id="generate-key-form" onSubmit={handleGenerateKey} className="space-y-4">
-          <Input
-            label="Token Identifier / Purpose"
-            placeholder="e.g. Jenkins Security Pipeline"
-            value={newKeyName}
-            onChange={(e) => setNewKeyName(e.target.value)}
-            required
-          />
-        </form>
-      </Modal>
     </div>
   );
 };
